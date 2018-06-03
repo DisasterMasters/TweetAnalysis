@@ -2,9 +2,9 @@ import csv
 import os
 import io
 
-file = io.open("dates.txt", "w", encoding="utf-8", errors="ignore")
+file = io.open("training_data/dates.txt", "w", encoding="utf-8", errors="ignore")
 
-for dirs, subdirs, files in os.walk("data"):
+for dirs, subdirs, files in os.walk("utility"):
 	for fname in files:
 		if fname.endswith(".csv"): 
 			f = open(dirs + "/" + fname, "r")

@@ -17,7 +17,7 @@ for line in file:
 tweets = []
 
 #put tweets into one large array
-with open("twits.txt", "r") as tops: 
+with open("training_data/twits.txt", "r") as tops: 
 	for line in tops:
 		tweets = line.strip().split('\t') #split all tweets into array
 

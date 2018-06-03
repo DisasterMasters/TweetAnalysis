@@ -11,7 +11,7 @@ import itertools
 tweets = []
 labels_list = []
 
-file = open("random_100s_F.csv") 
+file = open("training_data/random_100s_F.csv") 
 csv_read = csv.reader(file)
 csv_read.next()
 tmp_list = []
@@ -22,7 +22,7 @@ for row in csv_read:
 	labels_list.append(label)
 
 
-file = open("old/twits.txt", "r")
+file = open("training_data/twits.txt", "r")
 w = file.read()
 test_data = w.split("\t")
 

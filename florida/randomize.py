@@ -3,7 +3,7 @@ import random
 
 text_list = []
 
-book = xlrd.open_workbook("randomize.xlsx")
+book = xlrd.open_workbook("results/randomize.xlsx")
 sheet = book.sheet_by_index(0)
 for row in range(sheet.nrows):
 	text = str(sheet.cell(row, 0))

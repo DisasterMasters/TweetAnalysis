@@ -9,7 +9,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 
 docs = []
-with open("dates.txt") as file:
+with open("training_data/dates.txt") as file:
         for line in file:
                 docs = line.split("\t")
 

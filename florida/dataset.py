@@ -2,7 +2,7 @@ import csv
 import os
 import io
 
-file = io.open("tweets.txt", "w", encoding="utf-8", errors="ignore")
+file = io.open("utility/tweets.txt", "w", encoding="utf-8", errors="ignore")
 
 for dirs, subdirs, files in os.walk("data"):
 	for fname in files:

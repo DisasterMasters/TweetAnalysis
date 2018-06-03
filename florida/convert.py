@@ -8,7 +8,7 @@ import numpy as np
 from difflib import SequenceMatcher
 
 date_dict = {}
-f = open("random_100s_F.csv", "r")
+f = open("training_data/random_100s_F.csv", "r")
 csv_f = csv.reader(f)
 next(csv_f, None) #skip header
 for row in csv_f:
@@ -18,7 +18,7 @@ f.close()
 def lookUpDate(tweet):
 	
 	match_dict = {}
-	for dirs, subdirs, files in os.walk("old/data"):
+	for dirs, subdirs, files in os.walk("utility"):
 		for fname in files:
 			if fname.endswith(".csv"): 
 				f = open(dirs + "/" + fname, "r")
@@ -34,7 +34,7 @@ def lookUpDate(tweet):
 					#	r	eturn row[1][:-5]
 
 
-f = open("random_100s_F.csv", "r")
+f = open("training_data/random_100s_F.csv", "r")
 csv_f = csv.reader(f)
 next(csv_f, None) #skip header
 for row in csv_f:

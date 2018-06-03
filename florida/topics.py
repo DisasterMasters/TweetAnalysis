@@ -14,7 +14,7 @@ def display_topics(model, feature_names, no_top_words):
 
 documents = []
 
-with open("twits.txt") as file:
+with open("training_data/twits.txt") as file:
 	for line in file:
 		documents = line.split("\t") 
 		
