@@ -12,10 +12,11 @@ for dirs, subdirs, files in os.walk("utility"):
 			csv_f = csv.reader(f)
 			next(csv_f, None) #skip header
 			for row in csv_f:
-				text = row[4] + '+++' + row[1][:-5]
-				text = text + "\t"
-				text = text.decode('utf-8', errors='ignore')
-				file.write(text)
+				if len(row) > 4:
+					text = row[4] + '+++' + row[1][:-5] + '+++' + row[9]
+					text = text + "\t"
+					text = text.decode('utf-8', errors='ignore')
+					file.write(text)
 
 file.close()
 				

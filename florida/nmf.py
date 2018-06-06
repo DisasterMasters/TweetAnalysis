@@ -23,6 +23,9 @@ with open("training_data/dates.txt") as file:
 			t = d.split('+++')[0]
 			documents.append(t)
 
+count = open("len_ut.txt", "w")
+count.write(str(len(documents)))
+
 
 no_features = 1000
 

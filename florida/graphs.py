@@ -27,6 +27,9 @@ for row in csv_f:
 		date_dict[row[3]].append(date)
 		count += 1.0
 
+file = open("len_ut.txt", "r")
+num = int(file.read())
+
 
 colors = len(date_dict.keys())
 cm = plt.get_cmap('gist_rainbow')
@@ -44,7 +47,7 @@ for k, v in date_dict.iteritems():
 		else:
 			tmp_dict[vals] += 1.0
 	for k, v in tmp_dict.iteritems():
-		tmp_dict[k] /= count
+		tmp_dict[k] /= num
 	x, y = zip(*sorted(tmp_dict.items()))
 	plt.plot_date(x, y, '-', label=str(i))
 	plt.legend()

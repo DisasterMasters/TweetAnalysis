@@ -90,13 +90,17 @@ def compileTweets(tweet_index, title, i):
 				index = t[0]
 				tweet = docs[index].split('+++')[0]
 				date = docs[index].split('+++')[1]
-				tweet_list.append([tweet, date])
-		
+				id = docs[index].split('+++')[2]
+				if len(tweet_list) < 1000:
+					tweet_list.append([tweet, date, id])
+				else:
+					break
+
         return tweet_list
 
 left_categories = open("results/topics.txt", "r") #the categories for a tweet
 left_weights = open("results/W_indices.txt", "r") #their weights
-left_selections = open("results/nmf.txt", "r") #categories selected
+left_selections = open("results/topics.txt", "r") #categories selected
 
 left_indices, left_title = getIndices(left_categories, left_selections)
 
@@ -104,12 +108,12 @@ left = open("results/representation.csv", "w")
 left_tweets = getTweets(left_indices, left_weights, left_title)
 
 left = csv.writer(left)
-left.writerow(["Topic", "Tweets", "Date", "Number"])
+left.writerow(["Topic", "Tweets", "Date", "Number", "Permalink"])
 i = 0
 for k, v in left_tweets.iteritems():
         left.writerow([k])
         i += 1
         for val in v:
 			for l in val:
-				left.writerow(["", l[0], l[1], str(i)])
+				left.writerow(["", l[0], l[1], str(i), l[2]])
 
