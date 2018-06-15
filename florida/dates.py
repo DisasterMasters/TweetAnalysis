@@ -13,7 +13,7 @@ for dirs, subdirs, files in os.walk("utility"):
 			next(csv_f, None) #skip header
 			for row in csv_f:
 				if len(row) > 4:
-					text = row[4] + '+++' + row[1][:-5] + '+++' + row[9]
+					text = row[4] + '~+&$!sep779++' + row[1][:-5]
 					text = text + "\t"
 					text = text.decode('utf-8', errors='ignore')
 					file.write(text)
