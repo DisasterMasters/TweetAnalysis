@@ -2,7 +2,7 @@ import csv
 import os
 import io
 
-file = io.open("training_data/dates.txt", "w", encoding="utf-8", errors="ignore")
+file = io.open("training_data/test.txt", "w", encoding="utf-8", errors="ignore")
 
 for dirs, subdirs, files in os.walk("utility"):
 	for fname in files:
@@ -17,6 +17,7 @@ for dirs, subdirs, files in os.walk("utility"):
 					text = text + "\t"
 					text = text.decode('utf-8', errors='ignore')
 					file.write(text)
+					break
 
 file.close()
 				
