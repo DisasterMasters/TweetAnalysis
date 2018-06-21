@@ -22,14 +22,33 @@ for row in csv_read:
 	if '.' in label:
 		label = re.match(r'^(.*?)\..*', label).group(1)
 	label = int(label)
+	if label != 6 and label != 11:
+		label = 3
 	tweet = row[1]
 	tweets.append(tweet)
 	labels_list.append(label)
 
+'''
+file = open("tmp.csv", "w")
+csv_w = csv.writer(file)
+csv_w.writerow(["Tweet", "Label"])
+count_dict = {}
+for l, t in itertools.izip(labels_list, tweets):
+	if l not in count_dict:
+		count_dict[l] = 1
+	else:
+		count_dict[l] += 1
+	csv_w.writerow([t, str(l)])
+
+print count_dict
+'''
+
 list_end = labels_list[-1] + 1
 
+date_dict = {}
+
 test_data = []
-file = open("training_data/m_dates.txt", "r")
+file = open("training_data/dates.txt", "r")
 w = file.read()
 test = w.split("\t")
 for t in test:
@@ -46,7 +65,7 @@ for t in test:
 				start = datetime(year=2017, month=9, day=1)
 				end = datetime(year=2017, month=9, day=30)
 				if start < date < end:
-					test_data.append(t[0])
+					test_data.append([t[0], date])
 
 tfidf = TfidfVectorizer(sublinear_tf=True, min_df=5, norm='l2', encoding='latin-1', ngram_range=(1, 2), stop_words='english')
 features = tfidf.fit_transform(tweets).toarray()
@@ -59,19 +78,17 @@ tfidf_transformer = TfidfTransformer()
 X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
 clf = MultinomialNB().fit(X_train_tfidf, y_train)
 
-tweet_test = count_vect.transform(test_data)
 
-outfile = open("results/media_supervised.csv", "w")
+outfile = open("results/utility_supervised.csv", "w")
 writer = csv.writer(outfile)
-writer.writerow(['Tweet', 'Category'])
+writer.writerow(['Tweet', 'Category', 'Date'])
 
 
 for t in test_data:
-	vect = count_vect.transform([t])
+	vect = count_vect.transform([t[0]])
 	prediction = clf.predict(vect)
-	writer.writerow([t, int(prediction)])
+	writer.writerow([t[0], int(prediction), t[1].strftime('%m/%d/%Y')])
 	
-
 #probs = pd.DataFrame(clf.predict_proba(tweet_test))
 
 '''
