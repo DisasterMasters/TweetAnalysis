@@ -14,7 +14,7 @@ count = 0.0
 
 name = sys.argv[1]
 
-f = open("results/" + name + "_supervised.csv", "r")
+f = open("results/" + name + "_supervised_rf.csv", "r")
 
 csv_f = csv.reader(f)
 next(csv_f, None) #skip header
@@ -58,7 +58,8 @@ if sys.argv[2] == 'p':
 	name += "_percentage"
 elif sys.argv[2] == 'n':
 	name += "_counts"
-plt.title("Topics Distribution During Hurricane Irma (Supervised) (" + name + ")")
+#update later
+plt.title("Topics Distribution During Hurricane Irma (Random Forest) (" + name + ")")
 fig = plt.gcf()
 fig.set_size_inches(20.5, 12.5)
-fig.savefig("results/" + name + "_supervised_graph.png")
+fig.savefig("results/" + name + "_rf_graph.png")
