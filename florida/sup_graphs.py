@@ -19,16 +19,17 @@ f = open("results/" + name + "_supervised_rf.csv", "r")
 csv_f = csv.reader(f)
 next(csv_f, None) #skip header
 for row in csv_f:
-	date = row[2]
-	date = datetime.datetime.strptime(date, "%m/%d/%Y")
-	if row[1] not in date_dict:
-		date_dict[row[1]] = [date]
-	else:
-		date_dict[row[1]].append(date)
-	if date not in count_dict:
-		count_dict[date] = 1.0
-	else:
-		count_dict[date] += 1.0
+	if row[1] != '0':
+		date = row[2]
+		date = datetime.datetime.strptime(date, "%m/%d/%Y")
+		if row[1] not in date_dict:
+			date_dict[row[1]] = [date]
+		else:
+			date_dict[row[1]].append(date)
+		if date not in count_dict:
+			count_dict[date] = 1.0
+		else:
+			count_dict[date] += 1.0
 
 
 colors = len(date_dict.keys())

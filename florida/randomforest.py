@@ -8,27 +8,48 @@ import pandas as pd
 import itertools
 from datetime import datetime
 import re
+import math
+import random
+from itertools import repeat
 
 
 tweets = []
 labels_list = []
 
+tweetlabel_dict = {}
+
 file = open("training_data/updated_coding.csv") 
 csv_read = csv.reader(file)
 header = csv_read.next()
-#tmp_list = []
 for row in csv_read:
 	label = row[12]
-#	if '.' in label:
-#		label = re.match(r'^(.*?)\..*', label).group(1)
+	if '.' in label:
+		label = re.match(r'^(.*?)\..*', label).group(1)
 	label = int(label)
-#	if label != 6 and label != 11:
-#		label = 3
 	tweet = row[14]
 	if label != 17:
-		tweets.append(tweet)
-		labels_list.append(label)
+		if label not in tweetlabel_dict:
+			tweetlabel_dict[label] = [tweet]
+		else:
+			tweetlabel_dict[label].append(tweet)
 
+tweets = []
+labels_list = []
+
+for k, v in tweetlabel_dict.iteritems():
+	
+	if len(v) > 500:
+		sample = random.sample(v, 500)
+		for s in sample:
+			tweets.append(s)
+		labels_list.extend(repeat(k, 500))
+
+	elif len(v) < 500:
+		iters = math.ceil(500.0/len(v))
+		for i in range (0, int(iters)):
+			for vals in v:
+				tweets.append(vals)
+				labels_list.append(k)	
 '''
 file = open("tmp.csv", "w")
 csv_w = csv.writer(file)
@@ -44,12 +65,11 @@ for l, t in itertools.izip(labels_list, tweets):
 print count_dict
 '''
 
-list_end = labels_list[-1] + 1
 
 date_dict = {}
 
 test_data = []
-file = open("training_data/dates.txt", "r")
+file = open("training_data/m_dates.txt", "r")
 w = file.read()
 test = w.split("\t")
 for t in test:
@@ -80,7 +100,7 @@ X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
 clf = RandomForestClassifier().fit(X_train_tfidf, y_train)
 
 
-outfile = open("results/utility_supervised_rf.csv", "w")
+outfile = open("results/media_supervised_rf.csv", "w")
 writer = csv.writer(outfile)
 writer.writerow(['Tweet', 'Category', 'Date', 'Permalink'])
 
