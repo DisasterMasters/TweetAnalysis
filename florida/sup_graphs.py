@@ -6,6 +6,9 @@ import matplotlib.dates as mdates
 import datetime
 import numpy as np
 import sys
+import mpld3
+from mpld3 import plugins
+from mpld3.utils import get_id
 
 date_dict = {}
 count_dict = {}
@@ -33,11 +36,19 @@ for row in csv_f:
 
 
 colors = len(date_dict.keys())
-cm = plt.get_cmap('gist_rainbow')
+cm = plt.get_cmap('tab20')
 fig = plt.figure()
 ax = fig.add_subplot(111)
 ax.set_prop_cycle(color=[cm(1.*i/colors) for i in range(colors)])
 
+
+label_titles = ['Unrelated', 'Preparedness', 'Response', 'Status', 'Impact', 'Looting', 'Price Gouging', 'Other indirect Impact', 'Recovery', 'Requesting Help', 'Relief Efforts', 'Commenting Government', 'Commenting Utility', 'Commenting Media Coverage', 'Thanks', 'Well Wishes', 'Related to Other Hurricanes']
+
+ordered_titles = []
+
+line_collections = []
+
+fig, ax = plt.subplots()
 
 for k, v in date_dict.iteritems():
 	tmp_dict = {}
@@ -50,17 +61,23 @@ for k, v in date_dict.iteritems():
 		for j, v in tmp_dict.iteritems():
 			tmp_dict[j] /= count_dict[j]
 	x, y = zip(*sorted(tmp_dict.items()))
-	plt.plot_date(x, y, '-', label=str(k))
-	plt.legend()
+	line_collections.append(ax.plot_date(x, y, '-'))
+	ordered_titles.append(label_titles[int(k)])
 
-plt.ylabel("Number of Tweets Per Day")
-plt.xlabel("Time")
+interactive_legend = plugins.InteractiveLegendPlugin(line_collections, ordered_titles)
+
+ax.set_ylabel("Number of Tweets Per Day")
+ax.set_xlabel("Time")
 if sys.argv[2] == 'p':
 	name += "_percentage"
 elif sys.argv[2] == 'n':
 	name += "_counts"
 #update later
-plt.title("Topics Distribution During Hurricane Irma (Random Forest) (" + name + ")")
-fig = plt.gcf()
-fig.set_size_inches(20.5, 12.5)
+ax.set_title("Topics Distribution During Hurricane Irma (Random Forest) (" + name + ")")
+mpld3.plugins.connect(fig, interactive_legend)
+fig.set_size_inches(26.5, 12.5)
 fig.savefig("results/" + name + "_rf_graph.png")
+#mpld3.show()
+html_string = mpld3.fig_to_html(fig)
+figure = open('results/' + name + '.html', 'w')
+figure.write(html_string)

@@ -1,0 +1,485 @@
+
+
+<style>
+
+    .legend-box {
+      cursor: pointer;
+    }
+    
+</style>
+
+<div id="fig_el103351407034504487207885063306"></div>
+<script>
+function mpld3_load_lib(url, callback){
+  var s = document.createElement('script');
+  s.src = url;
+  s.async = true;
+  s.onreadystatechange = s.onload = callback;
+  s.onerror = function(){console.warn("failed to load library " + url);};
+  document.getElementsByTagName("head")[0].appendChild(s);
+}
+
+if(typeof(mpld3) !== "undefined" && mpld3._mpld3IsLoaded){
+   // already loaded: just create the figure
+   !function(mpld3){
+       
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+       mpld3.draw_figure("fig_el103351407034504487207885063306", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.5, -0.030418470418470414], "rotation": -0.0, "id": "el10335140703445253904"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.02028132819368364, 0.5], "rotation": -90.0, "id": "el10335140703442629520"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (Random Forest) (utility_counts)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.5, 1.0086580086580086], "rotation": -0.0, "id": "el10335140703442669072"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [-9.3, 195.3], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 10, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el10335140703442629968"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data02", "id": "el10335140703442806800"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data03", "id": "el10335140703442807696"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data04", "id": "el10335140703442808784"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data05", "id": "el10335140703442379792"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data06", "id": "el10335140703442380816"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data07", "id": "el10335140703442381840"}, {"drawstyle": "default", "color": "#7F7F7F", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data08", "id": "el10335140703442423888"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el10335140703442424912"}, {"drawstyle": "default", "color": "#17BECF", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data10", "id": "el10335140703442425936"}, {"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data11", "id": "el10335140703442426960"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data12", "id": "el10335140703442473104"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data13", "id": "el10335140703442474128"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data14", "id": "el10335140703442475152"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data15", "id": "el10335140703442476176"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data16", "id": "el10335140703442514128"}], "markers": [], "id": "el10335140703445251344", "ydomain": [-9.3, 195.3], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1250.0, "width": 2650.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el10335140703442629968", "el10335140703442629968pts"], ["el10335140703442806800", "el10335140703442806800pts"], ["el10335140703442807696", "el10335140703442807696pts"], ["el10335140703442808784", "el10335140703442808784pts"], ["el10335140703442379792", "el10335140703442379792pts"], ["el10335140703442380816", "el10335140703442380816pts"], ["el10335140703442381840", "el10335140703442381840pts"], ["el10335140703442423888", "el10335140703442423888pts"], ["el10335140703442424912", "el10335140703442424912pts"], ["el10335140703442425936", "el10335140703442425936pts"], ["el10335140703442426960", "el10335140703442426960pts"], ["el10335140703442473104", "el10335140703442473104pts"], ["el10335140703442474128", "el10335140703442474128pts"], ["el10335140703442475152", "el10335140703442475152pts"], ["el10335140703442476176", "el10335140703442476176pts"], ["el10335140703442514128", "el10335140703442514128pts"]], "labels": ["Commenting Government", "Relief Efforts", "Commenting Media Coverage", "Commenting Utility", "Well Wishes", "Thanks", "Related to Other Hurricanes", "Preparedness", "Status", "Response", "Looting", "Impact", "Other indirect Impact", "Price Gouging", "Requesting Help", "Recovery"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true], "type": "interactive_legend"}], "data": {"data12": [[736577.0, 0.0], [736578.0, 1.0], [736579.0, 1.0], [736580.0, 5.0], [736581.0, 7.0], [736582.0, 26.0], [736583.0, 72.0], [736584.0, 104.0], [736585.0, 86.0], [736586.0, 60.0], [736587.0, 38.0], [736588.0, 37.0], [736589.0, 21.0], [736590.0, 21.0], [736591.0, 8.0], [736592.0, 6.0], [736593.0, 0.0], [736594.0, 4.0], [736595.0, 1.0], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 0.0], [736600.0, 2.0], [736601.0, 0.0]], "data16": [[736580.0, 0.0], [736582.0, 0.0], [736583.0, 6.0], [736584.0, 9.0], [736585.0, 12.0], [736586.0, 5.0], [736587.0, 1.0], [736588.0, 5.0], [736589.0, 6.0], [736590.0, 8.0], [736592.0, 0.0]], "data11": [[736579.0, 0.0], [736580.0, 0.0], [736581.0, 1.0], [736582.0, 2.0], [736583.0, 17.0], [736584.0, 29.0], [736585.0, 25.0], [736586.0, 18.0], [736587.0, 16.0], [736588.0, 16.0], [736589.0, 5.0], [736590.0, 5.0], [736591.0, 0.0], [736594.0, 1.0], [736597.0, 1.0]], "data14": [[736583.0, 0.0], [736585.0, 2.0], [736587.0, 0.0], [736589.0, 0.0], [736591.0, 0.0]], "data10": [[736578.0, 2.0], [736579.0, 2.0], [736580.0, 13.0], [736581.0, 6.0], [736582.0, 45.0], [736583.0, 111.0], [736584.0, 186.0], [736585.0, 150.0], [736586.0, 118.0], [736587.0, 99.0], [736588.0, 94.0], [736589.0, 63.0], [736590.0, 36.0], [736591.0, 24.0], [736592.0, 9.0], [736593.0, 5.0], [736594.0, 3.0], [736595.0, 3.0], [736596.0, 4.0], [736597.0, 2.0], [736598.0, 3.0], [736599.0, 2.0], [736600.0, 2.0], [736601.0, 2.0]], "data15": [[736578.0, 0.0], [736579.0, 2.0], [736580.0, 7.0], [736581.0, 1.0], [736582.0, 9.0], [736583.0, 84.0], [736584.0, 111.0], [736585.0, 75.0], [736586.0, 45.0], [736587.0, 53.0], [736588.0, 33.0], [736589.0, 22.0], [736590.0, 16.0], [736591.0, 9.0], [736593.0, 3.0], [736594.0, 4.0], [736595.0, 0.0], [736596.0, 0.0], [736598.0, 0.0], [736600.0, 1.0]], "data08": [[736577.0, 0.0], [736579.0, 2.0], [736580.0, 3.0], [736581.0, 2.0], [736582.0, 7.0], [736583.0, 18.0], [736584.0, 19.0], [736585.0, 12.0], [736586.0, 16.0], [736587.0, 12.0], [736588.0, 17.0], [736589.0, 17.0], [736590.0, 8.0], [736591.0, 5.0], [736592.0, 2.0], [736593.0, 3.0], [736594.0, 3.0], [736598.0, 0.0], [736600.0, 0.0]], "data09": [[736576.0, 0.0], [736579.0, 0.0], [736580.0, 2.0], [736581.0, 1.0], [736582.0, 1.0], [736583.0, 4.0], [736584.0, 15.0], [736585.0, 5.0], [736586.0, 11.0], [736587.0, 8.0], [736588.0, 3.0], [736589.0, 5.0], [736590.0, 4.0], [736591.0, 2.0], [736593.0, 0.0], [736594.0, 0.0], [736600.0, 0.0]], "data06": [[736580.0, 1.0], [736581.0, 4.0], [736582.0, 4.0], [736583.0, 84.0], [736584.0, 64.0], [736585.0, 44.0], [736586.0, 24.0], [736587.0, 30.0], [736588.0, 23.0], [736589.0, 13.0], [736590.0, 7.0], [736591.0, 1.0], [736592.0, 2.0], [736594.0, 1.0], [736595.0, 1.0], [736597.0, 0.0], [736598.0, 1.0], [736601.0, 0.0]], "data07": [[736582.0, 0.0], [736583.0, 2.0], [736584.0, 2.0], [736585.0, 1.0], [736586.0, 2.0], [736587.0, 2.0], [736588.0, 0.0], [736589.0, 1.0], [736590.0, 0.0], [736591.0, 1.0], [736594.0, 0.0]], "data04": [[736574.0, 0.0], [736576.0, 0.0], [736577.0, 0.0], [736578.0, 2.0], [736579.0, 2.0], [736580.0, 13.0], [736581.0, 11.0], [736582.0, 27.0], [736583.0, 113.0], [736584.0, 167.0], [736585.0, 115.0], [736586.0, 92.0], [736587.0, 82.0], [736588.0, 64.0], [736589.0, 45.0], [736590.0, 34.0], [736591.0, 12.0], [736592.0, 17.0], [736593.0, 2.0], [736594.0, 4.0], [736595.0, 1.0], [736597.0, 0.0], [736598.0, 1.0], [736600.0, 2.0]], "data05": [[736577.0, 0.0], [736578.0, 1.0], [736580.0, 4.0], [736581.0, 5.0], [736582.0, 12.0], [736583.0, 26.0], [736584.0, 38.0], [736585.0, 21.0], [736586.0, 29.0], [736587.0, 11.0], [736588.0, 19.0], [736589.0, 7.0], [736590.0, 10.0], [736591.0, 6.0], [736592.0, 0.0], [736595.0, 0.0], [736601.0, 0.0]], "data02": [[736580.0, 0.0], [736582.0, 0.0], [736583.0, 6.0], [736584.0, 8.0], [736585.0, 3.0], [736586.0, 3.0], [736587.0, 9.0], [736588.0, 0.0], [736589.0, 2.0], [736590.0, 1.0], [736591.0, 1.0]], "data03": [[736577.0, 0.0], [736580.0, 1.0], [736582.0, 2.0], [736583.0, 13.0], [736584.0, 22.0], [736585.0, 11.0], [736586.0, 12.0], [736587.0, 9.0], [736588.0, 10.0], [736589.0, 4.0], [736590.0, 3.0], [736591.0, 2.0], [736593.0, 0.0], [736596.0, 0.0], [736599.0, 0.0]], "data13": [[736579.0, 0.0], [736580.0, 1.0], [736582.0, 0.0], [736584.0, 10.0], [736585.0, 10.0], [736586.0, 3.0], [736587.0, 4.0], [736588.0, 0.0], [736589.0, 3.0], [736591.0, 0.0], [736592.0, 0.0], [736598.0, 0.0]], "data01": [[736583.0, 3.0], [736584.0, 7.0], [736585.0, 9.0], [736586.0, 9.0], [736587.0, 7.0], [736588.0, 9.0], [736589.0, 1.0], [736590.0, 5.0], [736591.0, 3.0], [736592.0, 2.0], [736593.0, 0.0]]}, "id": "el10335140703450448720"});
+   }(mpld3);
+}else if(typeof define === "function" && define.amd){
+   // require.js is available: use it to load d3/mpld3
+   require.config({paths: {d3: "https://mpld3.github.io/js/d3.v3.min"}});
+   require(["d3"], function(d3){
+      window.d3 = d3;
+      mpld3_load_lib("https://mpld3.github.io/js/mpld3.v0.3.js", function(){
+         
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+         mpld3.draw_figure("fig_el103351407034504487207885063306", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.5, -0.030418470418470414], "rotation": -0.0, "id": "el10335140703445253904"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.02028132819368364, 0.5], "rotation": -90.0, "id": "el10335140703442629520"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (Random Forest) (utility_counts)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.5, 1.0086580086580086], "rotation": -0.0, "id": "el10335140703442669072"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [-9.3, 195.3], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 10, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el10335140703442629968"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data02", "id": "el10335140703442806800"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data03", "id": "el10335140703442807696"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data04", "id": "el10335140703442808784"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data05", "id": "el10335140703442379792"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data06", "id": "el10335140703442380816"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data07", "id": "el10335140703442381840"}, {"drawstyle": "default", "color": "#7F7F7F", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data08", "id": "el10335140703442423888"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el10335140703442424912"}, {"drawstyle": "default", "color": "#17BECF", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data10", "id": "el10335140703442425936"}, {"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data11", "id": "el10335140703442426960"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data12", "id": "el10335140703442473104"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data13", "id": "el10335140703442474128"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data14", "id": "el10335140703442475152"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data15", "id": "el10335140703442476176"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data16", "id": "el10335140703442514128"}], "markers": [], "id": "el10335140703445251344", "ydomain": [-9.3, 195.3], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1250.0, "width": 2650.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el10335140703442629968", "el10335140703442629968pts"], ["el10335140703442806800", "el10335140703442806800pts"], ["el10335140703442807696", "el10335140703442807696pts"], ["el10335140703442808784", "el10335140703442808784pts"], ["el10335140703442379792", "el10335140703442379792pts"], ["el10335140703442380816", "el10335140703442380816pts"], ["el10335140703442381840", "el10335140703442381840pts"], ["el10335140703442423888", "el10335140703442423888pts"], ["el10335140703442424912", "el10335140703442424912pts"], ["el10335140703442425936", "el10335140703442425936pts"], ["el10335140703442426960", "el10335140703442426960pts"], ["el10335140703442473104", "el10335140703442473104pts"], ["el10335140703442474128", "el10335140703442474128pts"], ["el10335140703442475152", "el10335140703442475152pts"], ["el10335140703442476176", "el10335140703442476176pts"], ["el10335140703442514128", "el10335140703442514128pts"]], "labels": ["Commenting Government", "Relief Efforts", "Commenting Media Coverage", "Commenting Utility", "Well Wishes", "Thanks", "Related to Other Hurricanes", "Preparedness", "Status", "Response", "Looting", "Impact", "Other indirect Impact", "Price Gouging", "Requesting Help", "Recovery"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true], "type": "interactive_legend"}], "data": {"data12": [[736577.0, 0.0], [736578.0, 1.0], [736579.0, 1.0], [736580.0, 5.0], [736581.0, 7.0], [736582.0, 26.0], [736583.0, 72.0], [736584.0, 104.0], [736585.0, 86.0], [736586.0, 60.0], [736587.0, 38.0], [736588.0, 37.0], [736589.0, 21.0], [736590.0, 21.0], [736591.0, 8.0], [736592.0, 6.0], [736593.0, 0.0], [736594.0, 4.0], [736595.0, 1.0], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 0.0], [736600.0, 2.0], [736601.0, 0.0]], "data16": [[736580.0, 0.0], [736582.0, 0.0], [736583.0, 6.0], [736584.0, 9.0], [736585.0, 12.0], [736586.0, 5.0], [736587.0, 1.0], [736588.0, 5.0], [736589.0, 6.0], [736590.0, 8.0], [736592.0, 0.0]], "data11": [[736579.0, 0.0], [736580.0, 0.0], [736581.0, 1.0], [736582.0, 2.0], [736583.0, 17.0], [736584.0, 29.0], [736585.0, 25.0], [736586.0, 18.0], [736587.0, 16.0], [736588.0, 16.0], [736589.0, 5.0], [736590.0, 5.0], [736591.0, 0.0], [736594.0, 1.0], [736597.0, 1.0]], "data14": [[736583.0, 0.0], [736585.0, 2.0], [736587.0, 0.0], [736589.0, 0.0], [736591.0, 0.0]], "data10": [[736578.0, 2.0], [736579.0, 2.0], [736580.0, 13.0], [736581.0, 6.0], [736582.0, 45.0], [736583.0, 111.0], [736584.0, 186.0], [736585.0, 150.0], [736586.0, 118.0], [736587.0, 99.0], [736588.0, 94.0], [736589.0, 63.0], [736590.0, 36.0], [736591.0, 24.0], [736592.0, 9.0], [736593.0, 5.0], [736594.0, 3.0], [736595.0, 3.0], [736596.0, 4.0], [736597.0, 2.0], [736598.0, 3.0], [736599.0, 2.0], [736600.0, 2.0], [736601.0, 2.0]], "data15": [[736578.0, 0.0], [736579.0, 2.0], [736580.0, 7.0], [736581.0, 1.0], [736582.0, 9.0], [736583.0, 84.0], [736584.0, 111.0], [736585.0, 75.0], [736586.0, 45.0], [736587.0, 53.0], [736588.0, 33.0], [736589.0, 22.0], [736590.0, 16.0], [736591.0, 9.0], [736593.0, 3.0], [736594.0, 4.0], [736595.0, 0.0], [736596.0, 0.0], [736598.0, 0.0], [736600.0, 1.0]], "data08": [[736577.0, 0.0], [736579.0, 2.0], [736580.0, 3.0], [736581.0, 2.0], [736582.0, 7.0], [736583.0, 18.0], [736584.0, 19.0], [736585.0, 12.0], [736586.0, 16.0], [736587.0, 12.0], [736588.0, 17.0], [736589.0, 17.0], [736590.0, 8.0], [736591.0, 5.0], [736592.0, 2.0], [736593.0, 3.0], [736594.0, 3.0], [736598.0, 0.0], [736600.0, 0.0]], "data09": [[736576.0, 0.0], [736579.0, 0.0], [736580.0, 2.0], [736581.0, 1.0], [736582.0, 1.0], [736583.0, 4.0], [736584.0, 15.0], [736585.0, 5.0], [736586.0, 11.0], [736587.0, 8.0], [736588.0, 3.0], [736589.0, 5.0], [736590.0, 4.0], [736591.0, 2.0], [736593.0, 0.0], [736594.0, 0.0], [736600.0, 0.0]], "data06": [[736580.0, 1.0], [736581.0, 4.0], [736582.0, 4.0], [736583.0, 84.0], [736584.0, 64.0], [736585.0, 44.0], [736586.0, 24.0], [736587.0, 30.0], [736588.0, 23.0], [736589.0, 13.0], [736590.0, 7.0], [736591.0, 1.0], [736592.0, 2.0], [736594.0, 1.0], [736595.0, 1.0], [736597.0, 0.0], [736598.0, 1.0], [736601.0, 0.0]], "data07": [[736582.0, 0.0], [736583.0, 2.0], [736584.0, 2.0], [736585.0, 1.0], [736586.0, 2.0], [736587.0, 2.0], [736588.0, 0.0], [736589.0, 1.0], [736590.0, 0.0], [736591.0, 1.0], [736594.0, 0.0]], "data04": [[736574.0, 0.0], [736576.0, 0.0], [736577.0, 0.0], [736578.0, 2.0], [736579.0, 2.0], [736580.0, 13.0], [736581.0, 11.0], [736582.0, 27.0], [736583.0, 113.0], [736584.0, 167.0], [736585.0, 115.0], [736586.0, 92.0], [736587.0, 82.0], [736588.0, 64.0], [736589.0, 45.0], [736590.0, 34.0], [736591.0, 12.0], [736592.0, 17.0], [736593.0, 2.0], [736594.0, 4.0], [736595.0, 1.0], [736597.0, 0.0], [736598.0, 1.0], [736600.0, 2.0]], "data05": [[736577.0, 0.0], [736578.0, 1.0], [736580.0, 4.0], [736581.0, 5.0], [736582.0, 12.0], [736583.0, 26.0], [736584.0, 38.0], [736585.0, 21.0], [736586.0, 29.0], [736587.0, 11.0], [736588.0, 19.0], [736589.0, 7.0], [736590.0, 10.0], [736591.0, 6.0], [736592.0, 0.0], [736595.0, 0.0], [736601.0, 0.0]], "data02": [[736580.0, 0.0], [736582.0, 0.0], [736583.0, 6.0], [736584.0, 8.0], [736585.0, 3.0], [736586.0, 3.0], [736587.0, 9.0], [736588.0, 0.0], [736589.0, 2.0], [736590.0, 1.0], [736591.0, 1.0]], "data03": [[736577.0, 0.0], [736580.0, 1.0], [736582.0, 2.0], [736583.0, 13.0], [736584.0, 22.0], [736585.0, 11.0], [736586.0, 12.0], [736587.0, 9.0], [736588.0, 10.0], [736589.0, 4.0], [736590.0, 3.0], [736591.0, 2.0], [736593.0, 0.0], [736596.0, 0.0], [736599.0, 0.0]], "data13": [[736579.0, 0.0], [736580.0, 1.0], [736582.0, 0.0], [736584.0, 10.0], [736585.0, 10.0], [736586.0, 3.0], [736587.0, 4.0], [736588.0, 0.0], [736589.0, 3.0], [736591.0, 0.0], [736592.0, 0.0], [736598.0, 0.0]], "data01": [[736583.0, 3.0], [736584.0, 7.0], [736585.0, 9.0], [736586.0, 9.0], [736587.0, 7.0], [736588.0, 9.0], [736589.0, 1.0], [736590.0, 5.0], [736591.0, 3.0], [736592.0, 2.0], [736593.0, 0.0]]}, "id": "el10335140703450448720"});
+      });
+    });
+}else{
+    // require.js not available: dynamically load d3 & mpld3
+    mpld3_load_lib("https://mpld3.github.io/js/d3.v3.min.js", function(){
+         mpld3_load_lib("https://mpld3.github.io/js/mpld3.v0.3.js", function(){
+                 
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+                 mpld3.draw_figure("fig_el103351407034504487207885063306", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.5, -0.030418470418470414], "rotation": -0.0, "id": "el10335140703445253904"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.02028132819368364, 0.5], "rotation": -90.0, "id": "el10335140703442629520"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (Random Forest) (utility_counts)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.5, 1.0086580086580086], "rotation": -0.0, "id": "el10335140703442669072"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [-9.3, 195.3], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 10, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el10335140703442629968"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data02", "id": "el10335140703442806800"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data03", "id": "el10335140703442807696"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data04", "id": "el10335140703442808784"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data05", "id": "el10335140703442379792"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data06", "id": "el10335140703442380816"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data07", "id": "el10335140703442381840"}, {"drawstyle": "default", "color": "#7F7F7F", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data08", "id": "el10335140703442423888"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el10335140703442424912"}, {"drawstyle": "default", "color": "#17BECF", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data10", "id": "el10335140703442425936"}, {"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data11", "id": "el10335140703442426960"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data12", "id": "el10335140703442473104"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data13", "id": "el10335140703442474128"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data14", "id": "el10335140703442475152"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data15", "id": "el10335140703442476176"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data16", "id": "el10335140703442514128"}], "markers": [], "id": "el10335140703445251344", "ydomain": [-9.3, 195.3], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1250.0, "width": 2650.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el10335140703442629968", "el10335140703442629968pts"], ["el10335140703442806800", "el10335140703442806800pts"], ["el10335140703442807696", "el10335140703442807696pts"], ["el10335140703442808784", "el10335140703442808784pts"], ["el10335140703442379792", "el10335140703442379792pts"], ["el10335140703442380816", "el10335140703442380816pts"], ["el10335140703442381840", "el10335140703442381840pts"], ["el10335140703442423888", "el10335140703442423888pts"], ["el10335140703442424912", "el10335140703442424912pts"], ["el10335140703442425936", "el10335140703442425936pts"], ["el10335140703442426960", "el10335140703442426960pts"], ["el10335140703442473104", "el10335140703442473104pts"], ["el10335140703442474128", "el10335140703442474128pts"], ["el10335140703442475152", "el10335140703442475152pts"], ["el10335140703442476176", "el10335140703442476176pts"], ["el10335140703442514128", "el10335140703442514128pts"]], "labels": ["Commenting Government", "Relief Efforts", "Commenting Media Coverage", "Commenting Utility", "Well Wishes", "Thanks", "Related to Other Hurricanes", "Preparedness", "Status", "Response", "Looting", "Impact", "Other indirect Impact", "Price Gouging", "Requesting Help", "Recovery"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true], "type": "interactive_legend"}], "data": {"data12": [[736577.0, 0.0], [736578.0, 1.0], [736579.0, 1.0], [736580.0, 5.0], [736581.0, 7.0], [736582.0, 26.0], [736583.0, 72.0], [736584.0, 104.0], [736585.0, 86.0], [736586.0, 60.0], [736587.0, 38.0], [736588.0, 37.0], [736589.0, 21.0], [736590.0, 21.0], [736591.0, 8.0], [736592.0, 6.0], [736593.0, 0.0], [736594.0, 4.0], [736595.0, 1.0], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 0.0], [736600.0, 2.0], [736601.0, 0.0]], "data16": [[736580.0, 0.0], [736582.0, 0.0], [736583.0, 6.0], [736584.0, 9.0], [736585.0, 12.0], [736586.0, 5.0], [736587.0, 1.0], [736588.0, 5.0], [736589.0, 6.0], [736590.0, 8.0], [736592.0, 0.0]], "data11": [[736579.0, 0.0], [736580.0, 0.0], [736581.0, 1.0], [736582.0, 2.0], [736583.0, 17.0], [736584.0, 29.0], [736585.0, 25.0], [736586.0, 18.0], [736587.0, 16.0], [736588.0, 16.0], [736589.0, 5.0], [736590.0, 5.0], [736591.0, 0.0], [736594.0, 1.0], [736597.0, 1.0]], "data14": [[736583.0, 0.0], [736585.0, 2.0], [736587.0, 0.0], [736589.0, 0.0], [736591.0, 0.0]], "data10": [[736578.0, 2.0], [736579.0, 2.0], [736580.0, 13.0], [736581.0, 6.0], [736582.0, 45.0], [736583.0, 111.0], [736584.0, 186.0], [736585.0, 150.0], [736586.0, 118.0], [736587.0, 99.0], [736588.0, 94.0], [736589.0, 63.0], [736590.0, 36.0], [736591.0, 24.0], [736592.0, 9.0], [736593.0, 5.0], [736594.0, 3.0], [736595.0, 3.0], [736596.0, 4.0], [736597.0, 2.0], [736598.0, 3.0], [736599.0, 2.0], [736600.0, 2.0], [736601.0, 2.0]], "data15": [[736578.0, 0.0], [736579.0, 2.0], [736580.0, 7.0], [736581.0, 1.0], [736582.0, 9.0], [736583.0, 84.0], [736584.0, 111.0], [736585.0, 75.0], [736586.0, 45.0], [736587.0, 53.0], [736588.0, 33.0], [736589.0, 22.0], [736590.0, 16.0], [736591.0, 9.0], [736593.0, 3.0], [736594.0, 4.0], [736595.0, 0.0], [736596.0, 0.0], [736598.0, 0.0], [736600.0, 1.0]], "data08": [[736577.0, 0.0], [736579.0, 2.0], [736580.0, 3.0], [736581.0, 2.0], [736582.0, 7.0], [736583.0, 18.0], [736584.0, 19.0], [736585.0, 12.0], [736586.0, 16.0], [736587.0, 12.0], [736588.0, 17.0], [736589.0, 17.0], [736590.0, 8.0], [736591.0, 5.0], [736592.0, 2.0], [736593.0, 3.0], [736594.0, 3.0], [736598.0, 0.0], [736600.0, 0.0]], "data09": [[736576.0, 0.0], [736579.0, 0.0], [736580.0, 2.0], [736581.0, 1.0], [736582.0, 1.0], [736583.0, 4.0], [736584.0, 15.0], [736585.0, 5.0], [736586.0, 11.0], [736587.0, 8.0], [736588.0, 3.0], [736589.0, 5.0], [736590.0, 4.0], [736591.0, 2.0], [736593.0, 0.0], [736594.0, 0.0], [736600.0, 0.0]], "data06": [[736580.0, 1.0], [736581.0, 4.0], [736582.0, 4.0], [736583.0, 84.0], [736584.0, 64.0], [736585.0, 44.0], [736586.0, 24.0], [736587.0, 30.0], [736588.0, 23.0], [736589.0, 13.0], [736590.0, 7.0], [736591.0, 1.0], [736592.0, 2.0], [736594.0, 1.0], [736595.0, 1.0], [736597.0, 0.0], [736598.0, 1.0], [736601.0, 0.0]], "data07": [[736582.0, 0.0], [736583.0, 2.0], [736584.0, 2.0], [736585.0, 1.0], [736586.0, 2.0], [736587.0, 2.0], [736588.0, 0.0], [736589.0, 1.0], [736590.0, 0.0], [736591.0, 1.0], [736594.0, 0.0]], "data04": [[736574.0, 0.0], [736576.0, 0.0], [736577.0, 0.0], [736578.0, 2.0], [736579.0, 2.0], [736580.0, 13.0], [736581.0, 11.0], [736582.0, 27.0], [736583.0, 113.0], [736584.0, 167.0], [736585.0, 115.0], [736586.0, 92.0], [736587.0, 82.0], [736588.0, 64.0], [736589.0, 45.0], [736590.0, 34.0], [736591.0, 12.0], [736592.0, 17.0], [736593.0, 2.0], [736594.0, 4.0], [736595.0, 1.0], [736597.0, 0.0], [736598.0, 1.0], [736600.0, 2.0]], "data05": [[736577.0, 0.0], [736578.0, 1.0], [736580.0, 4.0], [736581.0, 5.0], [736582.0, 12.0], [736583.0, 26.0], [736584.0, 38.0], [736585.0, 21.0], [736586.0, 29.0], [736587.0, 11.0], [736588.0, 19.0], [736589.0, 7.0], [736590.0, 10.0], [736591.0, 6.0], [736592.0, 0.0], [736595.0, 0.0], [736601.0, 0.0]], "data02": [[736580.0, 0.0], [736582.0, 0.0], [736583.0, 6.0], [736584.0, 8.0], [736585.0, 3.0], [736586.0, 3.0], [736587.0, 9.0], [736588.0, 0.0], [736589.0, 2.0], [736590.0, 1.0], [736591.0, 1.0]], "data03": [[736577.0, 0.0], [736580.0, 1.0], [736582.0, 2.0], [736583.0, 13.0], [736584.0, 22.0], [736585.0, 11.0], [736586.0, 12.0], [736587.0, 9.0], [736588.0, 10.0], [736589.0, 4.0], [736590.0, 3.0], [736591.0, 2.0], [736593.0, 0.0], [736596.0, 0.0], [736599.0, 0.0]], "data13": [[736579.0, 0.0], [736580.0, 1.0], [736582.0, 0.0], [736584.0, 10.0], [736585.0, 10.0], [736586.0, 3.0], [736587.0, 4.0], [736588.0, 0.0], [736589.0, 3.0], [736591.0, 0.0], [736592.0, 0.0], [736598.0, 0.0]], "data01": [[736583.0, 3.0], [736584.0, 7.0], [736585.0, 9.0], [736586.0, 9.0], [736587.0, 7.0], [736588.0, 9.0], [736589.0, 1.0], [736590.0, 5.0], [736591.0, 3.0], [736592.0, 2.0], [736593.0, 0.0]]}, "id": "el10335140703450448720"});
+            })
+         });
+}
+</script>

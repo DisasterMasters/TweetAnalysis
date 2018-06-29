@@ -1,0 +1,485 @@
+
+
+<style>
+
+    .legend-box {
+      cursor: pointer;
+    }
+    
+</style>
+
+<div id="fig_el103511397457649508649585975511"></div>
+<script>
+function mpld3_load_lib(url, callback){
+  var s = document.createElement('script');
+  s.src = url;
+  s.async = true;
+  s.onreadystatechange = s.onload = callback;
+  s.onerror = function(){console.warn("failed to load library " + url);};
+  document.getElementsByTagName("head")[0].appendChild(s);
+}
+
+if(typeof(mpld3) !== "undefined" && mpld3._mpld3IsLoaded){
+   // already loaded: just create the figure
+   !function(mpld3){
+       
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+       mpld3.draw_figure("fig_el103511397457649508649585975511", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.5, -0.030418470418470414], "rotation": -0.0, "id": "el10351139745764773648"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.022411577737201593, 0.5], "rotation": -90.0, "id": "el10351139745764832144"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (Random Forest) (media_percentage)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.5, 1.0086580086580086], "rotation": -0.0, "id": "el10351139745762188816"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [-0.017499999999999998, 0.3675], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 10, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el10351139745764832592"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data02", "id": "el10351139745762326544"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data03", "id": "el10351139745762327440"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data04", "id": "el10351139745762328528"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data05", "id": "el10351139745762423824"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data06", "id": "el10351139745762424848"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data07", "id": "el10351139745762425872"}, {"drawstyle": "default", "color": "#7F7F7F", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data08", "id": "el10351139745761943632"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el10351139745761944656"}, {"drawstyle": "default", "color": "#17BECF", "yindex": 2, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el10351139745761945680"}, {"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data10", "id": "el10351139745761946704"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data11", "id": "el10351139745761992848"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data12", "id": "el10351139745761993872"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data13", "id": "el10351139745761994896"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data14", "id": "el10351139745761995920"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data15", "id": "el10351139745762042064"}], "markers": [], "id": "el10351139745764771088", "ydomain": [-0.017499999999999998, 0.3675], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1250.0, "width": 2650.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el10351139745764832592", "el10351139745764832592pts"], ["el10351139745762326544", "el10351139745762326544pts"], ["el10351139745762327440", "el10351139745762327440pts"], ["el10351139745762328528", "el10351139745762328528pts"], ["el10351139745762423824", "el10351139745762423824pts"], ["el10351139745762424848", "el10351139745762424848pts"], ["el10351139745762425872", "el10351139745762425872pts"], ["el10351139745761943632", "el10351139745761943632pts"], ["el10351139745761944656", "el10351139745761944656pts"], ["el10351139745761945680", "el10351139745761945680pts"], ["el10351139745761946704", "el10351139745761946704pts"], ["el10351139745761992848", "el10351139745761992848pts"], ["el10351139745761993872", "el10351139745761993872pts"], ["el10351139745761994896", "el10351139745761994896pts"], ["el10351139745761995920", "el10351139745761995920pts"], ["el10351139745762042064", "el10351139745762042064pts"]], "labels": ["Commenting Government", "Relief Efforts", "Commenting Media Coverage", "Commenting Utility", "Well Wishes", "Thanks", "Related to Other Hurricanes", "Preparedness", "Status", "Response", "Looting", "Impact", "Other indirect Impact", "Price Gouging", "Requesting Help", "Recovery"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true], "type": "interactive_legend"}], "data": {"data12": [[736576.0, 0.0], [736577.0, 0.0], [736578.0, 0.0], [736580.0, 0.0], [736581.0, 0.004889975550122249], [736582.0, 0.004398826979472141], [736583.0, 0.005763688760806916], [736585.0, 0.028368794326241134], [736586.0, 0.0], [736587.0, 0.046875], [736590.0, 0.0], [736596.0, 0.0], [736598.0, 0.0], [736600.0, 0.0]], "data11": [[736574.0, 0.05], [736576.0, 0.1346153846153846], [736577.0, 0.08849557522123894], [736578.0, 0.08955223880597014], [736579.0, 0.07432432432432433], [736580.0, 0.12], [736581.0, 0.10757946210268948], [736582.0, 0.13929618768328444], [736583.0, 0.15561959654178675], [736584.0, 0.1], [736585.0, 0.10638297872340426], [736586.0, 0.12857142857142856], [736587.0, 0.109375], [736588.0, 0.17073170731707318], [736589.0, 0.020833333333333332], [736590.0, 0.043478260869565216], [736591.0, 0.08], [736592.0, 0.15], [736593.0, 0.14285714285714285], [736594.0, 0.125], [736596.0, 0.07692307692307693], [736597.0, 0.047619047619047616], [736598.0, 0.075], [736599.0, 0.0], [736600.0, 0.05263157894736842], [736601.0, 0.20833333333333334]], "data14": [[736574.0, 0.2], [736576.0, 0.019230769230769232], [736577.0, 0.04424778761061947], [736578.0, 0.04477611940298507], [736579.0, 0.10810810810810811], [736580.0, 0.105], [736581.0, 0.097799511002445], [736582.0, 0.08357771260997067], [736583.0, 0.15273775216138327], [736584.0, 0.12142857142857143], [736585.0, 0.1347517730496454], [736586.0, 0.14285714285714285], [736587.0, 0.109375], [736588.0, 0.0], [736589.0, 0.10416666666666667], [736590.0, 0.08695652173913043], [736591.0, 0.08], [736592.0, 0.1], [736593.0, 0.03571428571428571], [736594.0, 0.0], [736595.0, 0.11764705882352941], [736596.0, 0.07692307692307693], [736597.0, 0.047619047619047616], [736598.0, 0.075], [736599.0, 0.08], [736600.0, 0.05263157894736842], [736601.0, 0.041666666666666664]], "data10": [[736577.0, 0.0], [736578.0, 0.007462686567164179], [736579.0, 0.013513513513513514], [736580.0, 0.01], [736581.0, 0.007334963325183374], [736582.0, 0.05278592375366569], [736583.0, 0.025936599423631124], [736584.0, 0.007142857142857143], [736585.0, 0.028368794326241134], [736586.0, 0.0], [736588.0, 0.0], [736590.0, 0.0], [736591.0, 0.04], [736592.0, 0.05], [736597.0, 0.0], [736598.0, 0.0]], "data15": [[736575.0, 0.0], [736577.0, 0.0], [736578.0, 0.007462686567164179], [736579.0, 0.006756756756756757], [736580.0, 0.0], [736581.0, 0.009779951100244499], [736582.0, 0.011730205278592375], [736583.0, 0.03170028818443804], [736584.0, 0.007142857142857143], [736585.0, 0.05673758865248227], [736586.0, 0.02857142857142857], [736587.0, 0.015625], [736588.0, 0.024390243902439025], [736589.0, 0.041666666666666664], [736590.0, 0.021739130434782608], [736591.0, 0.08], [736592.0, 0.0], [736593.0, 0.03571428571428571], [736594.0, 0.05], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.09523809523809523], [736598.0, 0.0], [736599.0, 0.02], [736600.0, 0.0]], "data08": [[736574.0, 0.0], [736575.0, 0.18181818181818182], [736576.0, 0.019230769230769232], [736577.0, 0.10619469026548672], [736578.0, 0.1044776119402985], [736579.0, 0.1554054054054054], [736580.0, 0.13], [736581.0, 0.061124694376528114], [736582.0, 0.045454545454545456], [736583.0, 0.06051873198847262], [736584.0, 0.07857142857142857], [736585.0, 0.04964539007092199], [736586.0, 0.14285714285714285], [736587.0, 0.046875], [736588.0, 0.0], [736589.0, 0.020833333333333332], [736590.0, 0.0], [736591.0, 0.06], [736592.0, 0.05], [736593.0, 0.10714285714285714], [736594.0, 0.1], [736595.0, 0.058823529411764705], [736596.0, 0.038461538461538464], [736598.0, 0.05], [736599.0, 0.16], [736600.0, 0.02631578947368421], [736601.0, 0.041666666666666664]], "data09": [[736574.0, 0.05, 0.35], [736575.0, 0.18181818181818182, 0.18181818181818182], [736576.0, 0.17307692307692307, 0.09615384615384616], [736577.0, 0.13274336283185842, 0.21238938053097345], [736578.0, 0.13432835820895522, 0.23880597014925373], [736579.0, 0.12162162162162163, 0.21621621621621623], [736580.0, 0.12, 0.17], [736581.0, 0.10757946210268948, 0.1784841075794621], [736582.0, 0.10117302052785923, 0.187683284457478], [736583.0, 0.09798270893371758, 0.2132564841498559], [736584.0, 0.12857142857142856, 0.22857142857142856], [736585.0, 0.09219858156028368, 0.24113475177304963], [736586.0, 0.12857142857142856, 0.17142857142857143], [736587.0, 0.046875, 0.1875], [736588.0, 0.12195121951219512, 0.14634146341463414], [736589.0, 0.0625, 0.14583333333333334], [736590.0, 0.13043478260869565, 0.2391304347826087], [736591.0, 0.2, 0.1], [736592.0, 0.0, 0.125], [736593.0, 0.07142857142857142, 0.03571428571428571], [736594.0, 0.0, 0.225], [736595.0, 0.0, 0.058823529411764705], [736596.0, 0.0, 0.038461538461538464], [736597.0, 0.0, 0.14285714285714285], [736598.0, 0.075, 0.225], [736599.0, 0.04, 0.3], [736600.0, 0.07894736842105263, 0.13157894736842105], [736601.0, 0.041666666666666664, 0.08333333333333333]], "data06": [[736576.0, 0.019230769230769232], [736577.0, 0.05309734513274336], [736578.0, 0.06716417910447761], [736579.0, 0.060810810810810814], [736580.0, 0.085], [736581.0, 0.05867970660146699], [736582.0, 0.07917888563049853], [736583.0, 0.09798270893371758], [736584.0, 0.07857142857142857], [736585.0, 0.0425531914893617], [736586.0, 0.02857142857142857], [736587.0, 0.0], [736588.0, 0.04878048780487805], [736589.0, 0.020833333333333332], [736590.0, 0.021739130434782608], [736591.0, 0.0], [736592.0, 0.0], [736593.0, 0.03571428571428571], [736596.0, 0.0], [736597.0, 0.0], [736599.0, 0.08], [736600.0, 0.05263157894736842], [736601.0, 0.08333333333333333]], "data07": [[736576.0, 0.09615384615384616], [736577.0, 0.07964601769911504], [736578.0, 0.03731343283582089], [736579.0, 0.006756756756756757], [736581.0, 0.0024449877750611247], [736582.0, 0.002932551319648094], [736583.0, 0.008645533141210375], [736584.0, 0.0], [736585.0, 0.014184397163120567], [736587.0, 0.015625], [736588.0, 0.12195121951219512], [736589.0, 0.1875], [736590.0, 0.13043478260869565], [736591.0, 0.14], [736592.0, 0.125], [736593.0, 0.14285714285714285], [736594.0, 0.05], [736595.0, 0.058823529411764705], [736596.0, 0.11538461538461539], [736597.0, 0.0], [736598.0, 0.025], [736599.0, 0.08], [736600.0, 0.15789473684210525]], "data04": [[736578.0, 0.022388059701492536], [736579.0, 0.0], [736580.0, 0.005], [736581.0, 0.0024449877750611247], [736582.0, 0.008797653958944282], [736583.0, 0.011527377521613832], [736584.0, 0.07857142857142857], [736585.0, 0.0], [736586.0, 0.0], [736587.0, 0.015625], [736588.0, 0.0], [736589.0, 0.020833333333333332], [736590.0, 0.021739130434782608], [736595.0, 0.0], [736597.0, 0.0]], "data05": [[736576.0, 0.038461538461538464], [736577.0, 0.08849557522123894], [736578.0, 0.05970149253731343], [736579.0, 0.05405405405405406], [736580.0, 0.105], [736581.0, 0.13447432762836187], [736582.0, 0.10997067448680352], [736583.0, 0.069164265129683], [736584.0, 0.05714285714285714], [736585.0, 0.04964539007092199], [736586.0, 0.07142857142857142], [736587.0, 0.046875], [736588.0, 0.07317073170731707], [736589.0, 0.08333333333333333], [736591.0, 0.02], [736592.0, 0.05], [736594.0, 0.1], [736595.0, 0.0], [736596.0, 0.038461538461538464], [736597.0, 0.047619047619047616], [736598.0, 0.1], [736599.0, 0.02], [736600.0, 0.05263157894736842], [736601.0, 0.041666666666666664]], "data02": [[736574.0, 0.0], [736576.0, 0.019230769230769232], [736577.0, 0.017699115044247787], [736578.0, 0.007462686567164179], [736579.0, 0.013513513513513514], [736580.0, 0.015], [736581.0, 0.014669926650366748], [736582.0, 0.010263929618768328], [736583.0, 0.005763688760806916], [736584.0, 0.0], [736585.0, 0.02127659574468085], [736587.0, 0.078125], [736588.0, 0.0], [736589.0, 0.0], [736590.0, 0.021739130434782608], [736592.0, 0.05], [736593.0, 0.07142857142857142], [736594.0, 0.075], [736595.0, 0.058823529411764705], [736596.0, 0.038461538461538464], [736598.0, 0.075], [736599.0, 0.02], [736600.0, 0.05263157894736842], [736601.0, 0.0]], "data03": [[736575.0, 0.0], [736576.0, 0.15384615384615385], [736577.0, 0.035398230088495575], [736578.0, 0.022388059701492536], [736579.0, 0.07432432432432433], [736580.0, 0.06], [736581.0, 0.17359413202933985], [736582.0, 0.14222873900293256], [736583.0, 0.020172910662824207], [736584.0, 0.02142857142857143], [736585.0, 0.02127659574468085], [736587.0, 0.0625], [736589.0, 0.041666666666666664], [736592.0, 0.0], [736594.0, 0.025], [736595.0, 0.058823529411764705], [736596.0, 0.07692307692307693], [736597.0, 0.09523809523809523], [736598.0, 0.0], [736600.0, 0.02631578947368421], [736601.0, 0.08333333333333333]], "data13": [[736574.0, 0.0], [736577.0, 0.017699115044247787], [736578.0, 0.04477611940298507], [736579.0, 0.0], [736580.0, 0.005], [736581.0, 0.0024449877750611247], [736583.0, 0.0], [736585.0, 0.0070921985815602835], [736596.0, 0.0]], "data01": [[736576.0, 0.0], [736587.0, 0.0], [736590.0, 0.0]]}, "id": "el10351139745764950864"});
+   }(mpld3);
+}else if(typeof define === "function" && define.amd){
+   // require.js is available: use it to load d3/mpld3
+   require.config({paths: {d3: "https://mpld3.github.io/js/d3.v3.min"}});
+   require(["d3"], function(d3){
+      window.d3 = d3;
+      mpld3_load_lib("https://mpld3.github.io/js/mpld3.v0.3.js", function(){
+         
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+         mpld3.draw_figure("fig_el103511397457649508649585975511", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.5, -0.030418470418470414], "rotation": -0.0, "id": "el10351139745764773648"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.022411577737201593, 0.5], "rotation": -90.0, "id": "el10351139745764832144"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (Random Forest) (media_percentage)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.5, 1.0086580086580086], "rotation": -0.0, "id": "el10351139745762188816"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [-0.017499999999999998, 0.3675], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 10, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el10351139745764832592"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data02", "id": "el10351139745762326544"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data03", "id": "el10351139745762327440"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data04", "id": "el10351139745762328528"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data05", "id": "el10351139745762423824"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data06", "id": "el10351139745762424848"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data07", "id": "el10351139745762425872"}, {"drawstyle": "default", "color": "#7F7F7F", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data08", "id": "el10351139745761943632"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el10351139745761944656"}, {"drawstyle": "default", "color": "#17BECF", "yindex": 2, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el10351139745761945680"}, {"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data10", "id": "el10351139745761946704"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data11", "id": "el10351139745761992848"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data12", "id": "el10351139745761993872"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data13", "id": "el10351139745761994896"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data14", "id": "el10351139745761995920"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data15", "id": "el10351139745762042064"}], "markers": [], "id": "el10351139745764771088", "ydomain": [-0.017499999999999998, 0.3675], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1250.0, "width": 2650.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el10351139745764832592", "el10351139745764832592pts"], ["el10351139745762326544", "el10351139745762326544pts"], ["el10351139745762327440", "el10351139745762327440pts"], ["el10351139745762328528", "el10351139745762328528pts"], ["el10351139745762423824", "el10351139745762423824pts"], ["el10351139745762424848", "el10351139745762424848pts"], ["el10351139745762425872", "el10351139745762425872pts"], ["el10351139745761943632", "el10351139745761943632pts"], ["el10351139745761944656", "el10351139745761944656pts"], ["el10351139745761945680", "el10351139745761945680pts"], ["el10351139745761946704", "el10351139745761946704pts"], ["el10351139745761992848", "el10351139745761992848pts"], ["el10351139745761993872", "el10351139745761993872pts"], ["el10351139745761994896", "el10351139745761994896pts"], ["el10351139745761995920", "el10351139745761995920pts"], ["el10351139745762042064", "el10351139745762042064pts"]], "labels": ["Commenting Government", "Relief Efforts", "Commenting Media Coverage", "Commenting Utility", "Well Wishes", "Thanks", "Related to Other Hurricanes", "Preparedness", "Status", "Response", "Looting", "Impact", "Other indirect Impact", "Price Gouging", "Requesting Help", "Recovery"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true], "type": "interactive_legend"}], "data": {"data12": [[736576.0, 0.0], [736577.0, 0.0], [736578.0, 0.0], [736580.0, 0.0], [736581.0, 0.004889975550122249], [736582.0, 0.004398826979472141], [736583.0, 0.005763688760806916], [736585.0, 0.028368794326241134], [736586.0, 0.0], [736587.0, 0.046875], [736590.0, 0.0], [736596.0, 0.0], [736598.0, 0.0], [736600.0, 0.0]], "data11": [[736574.0, 0.05], [736576.0, 0.1346153846153846], [736577.0, 0.08849557522123894], [736578.0, 0.08955223880597014], [736579.0, 0.07432432432432433], [736580.0, 0.12], [736581.0, 0.10757946210268948], [736582.0, 0.13929618768328444], [736583.0, 0.15561959654178675], [736584.0, 0.1], [736585.0, 0.10638297872340426], [736586.0, 0.12857142857142856], [736587.0, 0.109375], [736588.0, 0.17073170731707318], [736589.0, 0.020833333333333332], [736590.0, 0.043478260869565216], [736591.0, 0.08], [736592.0, 0.15], [736593.0, 0.14285714285714285], [736594.0, 0.125], [736596.0, 0.07692307692307693], [736597.0, 0.047619047619047616], [736598.0, 0.075], [736599.0, 0.0], [736600.0, 0.05263157894736842], [736601.0, 0.20833333333333334]], "data14": [[736574.0, 0.2], [736576.0, 0.019230769230769232], [736577.0, 0.04424778761061947], [736578.0, 0.04477611940298507], [736579.0, 0.10810810810810811], [736580.0, 0.105], [736581.0, 0.097799511002445], [736582.0, 0.08357771260997067], [736583.0, 0.15273775216138327], [736584.0, 0.12142857142857143], [736585.0, 0.1347517730496454], [736586.0, 0.14285714285714285], [736587.0, 0.109375], [736588.0, 0.0], [736589.0, 0.10416666666666667], [736590.0, 0.08695652173913043], [736591.0, 0.08], [736592.0, 0.1], [736593.0, 0.03571428571428571], [736594.0, 0.0], [736595.0, 0.11764705882352941], [736596.0, 0.07692307692307693], [736597.0, 0.047619047619047616], [736598.0, 0.075], [736599.0, 0.08], [736600.0, 0.05263157894736842], [736601.0, 0.041666666666666664]], "data10": [[736577.0, 0.0], [736578.0, 0.007462686567164179], [736579.0, 0.013513513513513514], [736580.0, 0.01], [736581.0, 0.007334963325183374], [736582.0, 0.05278592375366569], [736583.0, 0.025936599423631124], [736584.0, 0.007142857142857143], [736585.0, 0.028368794326241134], [736586.0, 0.0], [736588.0, 0.0], [736590.0, 0.0], [736591.0, 0.04], [736592.0, 0.05], [736597.0, 0.0], [736598.0, 0.0]], "data15": [[736575.0, 0.0], [736577.0, 0.0], [736578.0, 0.007462686567164179], [736579.0, 0.006756756756756757], [736580.0, 0.0], [736581.0, 0.009779951100244499], [736582.0, 0.011730205278592375], [736583.0, 0.03170028818443804], [736584.0, 0.007142857142857143], [736585.0, 0.05673758865248227], [736586.0, 0.02857142857142857], [736587.0, 0.015625], [736588.0, 0.024390243902439025], [736589.0, 0.041666666666666664], [736590.0, 0.021739130434782608], [736591.0, 0.08], [736592.0, 0.0], [736593.0, 0.03571428571428571], [736594.0, 0.05], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.09523809523809523], [736598.0, 0.0], [736599.0, 0.02], [736600.0, 0.0]], "data08": [[736574.0, 0.0], [736575.0, 0.18181818181818182], [736576.0, 0.019230769230769232], [736577.0, 0.10619469026548672], [736578.0, 0.1044776119402985], [736579.0, 0.1554054054054054], [736580.0, 0.13], [736581.0, 0.061124694376528114], [736582.0, 0.045454545454545456], [736583.0, 0.06051873198847262], [736584.0, 0.07857142857142857], [736585.0, 0.04964539007092199], [736586.0, 0.14285714285714285], [736587.0, 0.046875], [736588.0, 0.0], [736589.0, 0.020833333333333332], [736590.0, 0.0], [736591.0, 0.06], [736592.0, 0.05], [736593.0, 0.10714285714285714], [736594.0, 0.1], [736595.0, 0.058823529411764705], [736596.0, 0.038461538461538464], [736598.0, 0.05], [736599.0, 0.16], [736600.0, 0.02631578947368421], [736601.0, 0.041666666666666664]], "data09": [[736574.0, 0.05, 0.35], [736575.0, 0.18181818181818182, 0.18181818181818182], [736576.0, 0.17307692307692307, 0.09615384615384616], [736577.0, 0.13274336283185842, 0.21238938053097345], [736578.0, 0.13432835820895522, 0.23880597014925373], [736579.0, 0.12162162162162163, 0.21621621621621623], [736580.0, 0.12, 0.17], [736581.0, 0.10757946210268948, 0.1784841075794621], [736582.0, 0.10117302052785923, 0.187683284457478], [736583.0, 0.09798270893371758, 0.2132564841498559], [736584.0, 0.12857142857142856, 0.22857142857142856], [736585.0, 0.09219858156028368, 0.24113475177304963], [736586.0, 0.12857142857142856, 0.17142857142857143], [736587.0, 0.046875, 0.1875], [736588.0, 0.12195121951219512, 0.14634146341463414], [736589.0, 0.0625, 0.14583333333333334], [736590.0, 0.13043478260869565, 0.2391304347826087], [736591.0, 0.2, 0.1], [736592.0, 0.0, 0.125], [736593.0, 0.07142857142857142, 0.03571428571428571], [736594.0, 0.0, 0.225], [736595.0, 0.0, 0.058823529411764705], [736596.0, 0.0, 0.038461538461538464], [736597.0, 0.0, 0.14285714285714285], [736598.0, 0.075, 0.225], [736599.0, 0.04, 0.3], [736600.0, 0.07894736842105263, 0.13157894736842105], [736601.0, 0.041666666666666664, 0.08333333333333333]], "data06": [[736576.0, 0.019230769230769232], [736577.0, 0.05309734513274336], [736578.0, 0.06716417910447761], [736579.0, 0.060810810810810814], [736580.0, 0.085], [736581.0, 0.05867970660146699], [736582.0, 0.07917888563049853], [736583.0, 0.09798270893371758], [736584.0, 0.07857142857142857], [736585.0, 0.0425531914893617], [736586.0, 0.02857142857142857], [736587.0, 0.0], [736588.0, 0.04878048780487805], [736589.0, 0.020833333333333332], [736590.0, 0.021739130434782608], [736591.0, 0.0], [736592.0, 0.0], [736593.0, 0.03571428571428571], [736596.0, 0.0], [736597.0, 0.0], [736599.0, 0.08], [736600.0, 0.05263157894736842], [736601.0, 0.08333333333333333]], "data07": [[736576.0, 0.09615384615384616], [736577.0, 0.07964601769911504], [736578.0, 0.03731343283582089], [736579.0, 0.006756756756756757], [736581.0, 0.0024449877750611247], [736582.0, 0.002932551319648094], [736583.0, 0.008645533141210375], [736584.0, 0.0], [736585.0, 0.014184397163120567], [736587.0, 0.015625], [736588.0, 0.12195121951219512], [736589.0, 0.1875], [736590.0, 0.13043478260869565], [736591.0, 0.14], [736592.0, 0.125], [736593.0, 0.14285714285714285], [736594.0, 0.05], [736595.0, 0.058823529411764705], [736596.0, 0.11538461538461539], [736597.0, 0.0], [736598.0, 0.025], [736599.0, 0.08], [736600.0, 0.15789473684210525]], "data04": [[736578.0, 0.022388059701492536], [736579.0, 0.0], [736580.0, 0.005], [736581.0, 0.0024449877750611247], [736582.0, 0.008797653958944282], [736583.0, 0.011527377521613832], [736584.0, 0.07857142857142857], [736585.0, 0.0], [736586.0, 0.0], [736587.0, 0.015625], [736588.0, 0.0], [736589.0, 0.020833333333333332], [736590.0, 0.021739130434782608], [736595.0, 0.0], [736597.0, 0.0]], "data05": [[736576.0, 0.038461538461538464], [736577.0, 0.08849557522123894], [736578.0, 0.05970149253731343], [736579.0, 0.05405405405405406], [736580.0, 0.105], [736581.0, 0.13447432762836187], [736582.0, 0.10997067448680352], [736583.0, 0.069164265129683], [736584.0, 0.05714285714285714], [736585.0, 0.04964539007092199], [736586.0, 0.07142857142857142], [736587.0, 0.046875], [736588.0, 0.07317073170731707], [736589.0, 0.08333333333333333], [736591.0, 0.02], [736592.0, 0.05], [736594.0, 0.1], [736595.0, 0.0], [736596.0, 0.038461538461538464], [736597.0, 0.047619047619047616], [736598.0, 0.1], [736599.0, 0.02], [736600.0, 0.05263157894736842], [736601.0, 0.041666666666666664]], "data02": [[736574.0, 0.0], [736576.0, 0.019230769230769232], [736577.0, 0.017699115044247787], [736578.0, 0.007462686567164179], [736579.0, 0.013513513513513514], [736580.0, 0.015], [736581.0, 0.014669926650366748], [736582.0, 0.010263929618768328], [736583.0, 0.005763688760806916], [736584.0, 0.0], [736585.0, 0.02127659574468085], [736587.0, 0.078125], [736588.0, 0.0], [736589.0, 0.0], [736590.0, 0.021739130434782608], [736592.0, 0.05], [736593.0, 0.07142857142857142], [736594.0, 0.075], [736595.0, 0.058823529411764705], [736596.0, 0.038461538461538464], [736598.0, 0.075], [736599.0, 0.02], [736600.0, 0.05263157894736842], [736601.0, 0.0]], "data03": [[736575.0, 0.0], [736576.0, 0.15384615384615385], [736577.0, 0.035398230088495575], [736578.0, 0.022388059701492536], [736579.0, 0.07432432432432433], [736580.0, 0.06], [736581.0, 0.17359413202933985], [736582.0, 0.14222873900293256], [736583.0, 0.020172910662824207], [736584.0, 0.02142857142857143], [736585.0, 0.02127659574468085], [736587.0, 0.0625], [736589.0, 0.041666666666666664], [736592.0, 0.0], [736594.0, 0.025], [736595.0, 0.058823529411764705], [736596.0, 0.07692307692307693], [736597.0, 0.09523809523809523], [736598.0, 0.0], [736600.0, 0.02631578947368421], [736601.0, 0.08333333333333333]], "data13": [[736574.0, 0.0], [736577.0, 0.017699115044247787], [736578.0, 0.04477611940298507], [736579.0, 0.0], [736580.0, 0.005], [736581.0, 0.0024449877750611247], [736583.0, 0.0], [736585.0, 0.0070921985815602835], [736596.0, 0.0]], "data01": [[736576.0, 0.0], [736587.0, 0.0], [736590.0, 0.0]]}, "id": "el10351139745764950864"});
+      });
+    });
+}else{
+    // require.js not available: dynamically load d3 & mpld3
+    mpld3_load_lib("https://mpld3.github.io/js/d3.v3.min.js", function(){
+         mpld3_load_lib("https://mpld3.github.io/js/mpld3.v0.3.js", function(){
+                 
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+                 mpld3.draw_figure("fig_el103511397457649508649585975511", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.5, -0.030418470418470414], "rotation": -0.0, "id": "el10351139745764773648"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.022411577737201593, 0.5], "rotation": -90.0, "id": "el10351139745764832144"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (Random Forest) (media_percentage)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.5, 1.0086580086580086], "rotation": -0.0, "id": "el10351139745762188816"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [-0.017499999999999998, 0.3675], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 10, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el10351139745764832592"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data02", "id": "el10351139745762326544"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data03", "id": "el10351139745762327440"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data04", "id": "el10351139745762328528"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data05", "id": "el10351139745762423824"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data06", "id": "el10351139745762424848"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data07", "id": "el10351139745762425872"}, {"drawstyle": "default", "color": "#7F7F7F", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data08", "id": "el10351139745761943632"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el10351139745761944656"}, {"drawstyle": "default", "color": "#17BECF", "yindex": 2, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el10351139745761945680"}, {"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data10", "id": "el10351139745761946704"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data11", "id": "el10351139745761992848"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data12", "id": "el10351139745761993872"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data13", "id": "el10351139745761994896"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data14", "id": "el10351139745761995920"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data15", "id": "el10351139745762042064"}], "markers": [], "id": "el10351139745764771088", "ydomain": [-0.017499999999999998, 0.3675], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1250.0, "width": 2650.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el10351139745764832592", "el10351139745764832592pts"], ["el10351139745762326544", "el10351139745762326544pts"], ["el10351139745762327440", "el10351139745762327440pts"], ["el10351139745762328528", "el10351139745762328528pts"], ["el10351139745762423824", "el10351139745762423824pts"], ["el10351139745762424848", "el10351139745762424848pts"], ["el10351139745762425872", "el10351139745762425872pts"], ["el10351139745761943632", "el10351139745761943632pts"], ["el10351139745761944656", "el10351139745761944656pts"], ["el10351139745761945680", "el10351139745761945680pts"], ["el10351139745761946704", "el10351139745761946704pts"], ["el10351139745761992848", "el10351139745761992848pts"], ["el10351139745761993872", "el10351139745761993872pts"], ["el10351139745761994896", "el10351139745761994896pts"], ["el10351139745761995920", "el10351139745761995920pts"], ["el10351139745762042064", "el10351139745762042064pts"]], "labels": ["Commenting Government", "Relief Efforts", "Commenting Media Coverage", "Commenting Utility", "Well Wishes", "Thanks", "Related to Other Hurricanes", "Preparedness", "Status", "Response", "Looting", "Impact", "Other indirect Impact", "Price Gouging", "Requesting Help", "Recovery"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true], "type": "interactive_legend"}], "data": {"data12": [[736576.0, 0.0], [736577.0, 0.0], [736578.0, 0.0], [736580.0, 0.0], [736581.0, 0.004889975550122249], [736582.0, 0.004398826979472141], [736583.0, 0.005763688760806916], [736585.0, 0.028368794326241134], [736586.0, 0.0], [736587.0, 0.046875], [736590.0, 0.0], [736596.0, 0.0], [736598.0, 0.0], [736600.0, 0.0]], "data11": [[736574.0, 0.05], [736576.0, 0.1346153846153846], [736577.0, 0.08849557522123894], [736578.0, 0.08955223880597014], [736579.0, 0.07432432432432433], [736580.0, 0.12], [736581.0, 0.10757946210268948], [736582.0, 0.13929618768328444], [736583.0, 0.15561959654178675], [736584.0, 0.1], [736585.0, 0.10638297872340426], [736586.0, 0.12857142857142856], [736587.0, 0.109375], [736588.0, 0.17073170731707318], [736589.0, 0.020833333333333332], [736590.0, 0.043478260869565216], [736591.0, 0.08], [736592.0, 0.15], [736593.0, 0.14285714285714285], [736594.0, 0.125], [736596.0, 0.07692307692307693], [736597.0, 0.047619047619047616], [736598.0, 0.075], [736599.0, 0.0], [736600.0, 0.05263157894736842], [736601.0, 0.20833333333333334]], "data14": [[736574.0, 0.2], [736576.0, 0.019230769230769232], [736577.0, 0.04424778761061947], [736578.0, 0.04477611940298507], [736579.0, 0.10810810810810811], [736580.0, 0.105], [736581.0, 0.097799511002445], [736582.0, 0.08357771260997067], [736583.0, 0.15273775216138327], [736584.0, 0.12142857142857143], [736585.0, 0.1347517730496454], [736586.0, 0.14285714285714285], [736587.0, 0.109375], [736588.0, 0.0], [736589.0, 0.10416666666666667], [736590.0, 0.08695652173913043], [736591.0, 0.08], [736592.0, 0.1], [736593.0, 0.03571428571428571], [736594.0, 0.0], [736595.0, 0.11764705882352941], [736596.0, 0.07692307692307693], [736597.0, 0.047619047619047616], [736598.0, 0.075], [736599.0, 0.08], [736600.0, 0.05263157894736842], [736601.0, 0.041666666666666664]], "data10": [[736577.0, 0.0], [736578.0, 0.007462686567164179], [736579.0, 0.013513513513513514], [736580.0, 0.01], [736581.0, 0.007334963325183374], [736582.0, 0.05278592375366569], [736583.0, 0.025936599423631124], [736584.0, 0.007142857142857143], [736585.0, 0.028368794326241134], [736586.0, 0.0], [736588.0, 0.0], [736590.0, 0.0], [736591.0, 0.04], [736592.0, 0.05], [736597.0, 0.0], [736598.0, 0.0]], "data15": [[736575.0, 0.0], [736577.0, 0.0], [736578.0, 0.007462686567164179], [736579.0, 0.006756756756756757], [736580.0, 0.0], [736581.0, 0.009779951100244499], [736582.0, 0.011730205278592375], [736583.0, 0.03170028818443804], [736584.0, 0.007142857142857143], [736585.0, 0.05673758865248227], [736586.0, 0.02857142857142857], [736587.0, 0.015625], [736588.0, 0.024390243902439025], [736589.0, 0.041666666666666664], [736590.0, 0.021739130434782608], [736591.0, 0.08], [736592.0, 0.0], [736593.0, 0.03571428571428571], [736594.0, 0.05], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.09523809523809523], [736598.0, 0.0], [736599.0, 0.02], [736600.0, 0.0]], "data08": [[736574.0, 0.0], [736575.0, 0.18181818181818182], [736576.0, 0.019230769230769232], [736577.0, 0.10619469026548672], [736578.0, 0.1044776119402985], [736579.0, 0.1554054054054054], [736580.0, 0.13], [736581.0, 0.061124694376528114], [736582.0, 0.045454545454545456], [736583.0, 0.06051873198847262], [736584.0, 0.07857142857142857], [736585.0, 0.04964539007092199], [736586.0, 0.14285714285714285], [736587.0, 0.046875], [736588.0, 0.0], [736589.0, 0.020833333333333332], [736590.0, 0.0], [736591.0, 0.06], [736592.0, 0.05], [736593.0, 0.10714285714285714], [736594.0, 0.1], [736595.0, 0.058823529411764705], [736596.0, 0.038461538461538464], [736598.0, 0.05], [736599.0, 0.16], [736600.0, 0.02631578947368421], [736601.0, 0.041666666666666664]], "data09": [[736574.0, 0.05, 0.35], [736575.0, 0.18181818181818182, 0.18181818181818182], [736576.0, 0.17307692307692307, 0.09615384615384616], [736577.0, 0.13274336283185842, 0.21238938053097345], [736578.0, 0.13432835820895522, 0.23880597014925373], [736579.0, 0.12162162162162163, 0.21621621621621623], [736580.0, 0.12, 0.17], [736581.0, 0.10757946210268948, 0.1784841075794621], [736582.0, 0.10117302052785923, 0.187683284457478], [736583.0, 0.09798270893371758, 0.2132564841498559], [736584.0, 0.12857142857142856, 0.22857142857142856], [736585.0, 0.09219858156028368, 0.24113475177304963], [736586.0, 0.12857142857142856, 0.17142857142857143], [736587.0, 0.046875, 0.1875], [736588.0, 0.12195121951219512, 0.14634146341463414], [736589.0, 0.0625, 0.14583333333333334], [736590.0, 0.13043478260869565, 0.2391304347826087], [736591.0, 0.2, 0.1], [736592.0, 0.0, 0.125], [736593.0, 0.07142857142857142, 0.03571428571428571], [736594.0, 0.0, 0.225], [736595.0, 0.0, 0.058823529411764705], [736596.0, 0.0, 0.038461538461538464], [736597.0, 0.0, 0.14285714285714285], [736598.0, 0.075, 0.225], [736599.0, 0.04, 0.3], [736600.0, 0.07894736842105263, 0.13157894736842105], [736601.0, 0.041666666666666664, 0.08333333333333333]], "data06": [[736576.0, 0.019230769230769232], [736577.0, 0.05309734513274336], [736578.0, 0.06716417910447761], [736579.0, 0.060810810810810814], [736580.0, 0.085], [736581.0, 0.05867970660146699], [736582.0, 0.07917888563049853], [736583.0, 0.09798270893371758], [736584.0, 0.07857142857142857], [736585.0, 0.0425531914893617], [736586.0, 0.02857142857142857], [736587.0, 0.0], [736588.0, 0.04878048780487805], [736589.0, 0.020833333333333332], [736590.0, 0.021739130434782608], [736591.0, 0.0], [736592.0, 0.0], [736593.0, 0.03571428571428571], [736596.0, 0.0], [736597.0, 0.0], [736599.0, 0.08], [736600.0, 0.05263157894736842], [736601.0, 0.08333333333333333]], "data07": [[736576.0, 0.09615384615384616], [736577.0, 0.07964601769911504], [736578.0, 0.03731343283582089], [736579.0, 0.006756756756756757], [736581.0, 0.0024449877750611247], [736582.0, 0.002932551319648094], [736583.0, 0.008645533141210375], [736584.0, 0.0], [736585.0, 0.014184397163120567], [736587.0, 0.015625], [736588.0, 0.12195121951219512], [736589.0, 0.1875], [736590.0, 0.13043478260869565], [736591.0, 0.14], [736592.0, 0.125], [736593.0, 0.14285714285714285], [736594.0, 0.05], [736595.0, 0.058823529411764705], [736596.0, 0.11538461538461539], [736597.0, 0.0], [736598.0, 0.025], [736599.0, 0.08], [736600.0, 0.15789473684210525]], "data04": [[736578.0, 0.022388059701492536], [736579.0, 0.0], [736580.0, 0.005], [736581.0, 0.0024449877750611247], [736582.0, 0.008797653958944282], [736583.0, 0.011527377521613832], [736584.0, 0.07857142857142857], [736585.0, 0.0], [736586.0, 0.0], [736587.0, 0.015625], [736588.0, 0.0], [736589.0, 0.020833333333333332], [736590.0, 0.021739130434782608], [736595.0, 0.0], [736597.0, 0.0]], "data05": [[736576.0, 0.038461538461538464], [736577.0, 0.08849557522123894], [736578.0, 0.05970149253731343], [736579.0, 0.05405405405405406], [736580.0, 0.105], [736581.0, 0.13447432762836187], [736582.0, 0.10997067448680352], [736583.0, 0.069164265129683], [736584.0, 0.05714285714285714], [736585.0, 0.04964539007092199], [736586.0, 0.07142857142857142], [736587.0, 0.046875], [736588.0, 0.07317073170731707], [736589.0, 0.08333333333333333], [736591.0, 0.02], [736592.0, 0.05], [736594.0, 0.1], [736595.0, 0.0], [736596.0, 0.038461538461538464], [736597.0, 0.047619047619047616], [736598.0, 0.1], [736599.0, 0.02], [736600.0, 0.05263157894736842], [736601.0, 0.041666666666666664]], "data02": [[736574.0, 0.0], [736576.0, 0.019230769230769232], [736577.0, 0.017699115044247787], [736578.0, 0.007462686567164179], [736579.0, 0.013513513513513514], [736580.0, 0.015], [736581.0, 0.014669926650366748], [736582.0, 0.010263929618768328], [736583.0, 0.005763688760806916], [736584.0, 0.0], [736585.0, 0.02127659574468085], [736587.0, 0.078125], [736588.0, 0.0], [736589.0, 0.0], [736590.0, 0.021739130434782608], [736592.0, 0.05], [736593.0, 0.07142857142857142], [736594.0, 0.075], [736595.0, 0.058823529411764705], [736596.0, 0.038461538461538464], [736598.0, 0.075], [736599.0, 0.02], [736600.0, 0.05263157894736842], [736601.0, 0.0]], "data03": [[736575.0, 0.0], [736576.0, 0.15384615384615385], [736577.0, 0.035398230088495575], [736578.0, 0.022388059701492536], [736579.0, 0.07432432432432433], [736580.0, 0.06], [736581.0, 0.17359413202933985], [736582.0, 0.14222873900293256], [736583.0, 0.020172910662824207], [736584.0, 0.02142857142857143], [736585.0, 0.02127659574468085], [736587.0, 0.0625], [736589.0, 0.041666666666666664], [736592.0, 0.0], [736594.0, 0.025], [736595.0, 0.058823529411764705], [736596.0, 0.07692307692307693], [736597.0, 0.09523809523809523], [736598.0, 0.0], [736600.0, 0.02631578947368421], [736601.0, 0.08333333333333333]], "data13": [[736574.0, 0.0], [736577.0, 0.017699115044247787], [736578.0, 0.04477611940298507], [736579.0, 0.0], [736580.0, 0.005], [736581.0, 0.0024449877750611247], [736583.0, 0.0], [736585.0, 0.0070921985815602835], [736596.0, 0.0]], "data01": [[736576.0, 0.0], [736587.0, 0.0], [736590.0, 0.0]]}, "id": "el10351139745764950864"});
+            })
+         });
+}
+</script>

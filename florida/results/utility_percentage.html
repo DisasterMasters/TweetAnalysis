@@ -1,0 +1,485 @@
+
+
+<style>
+
+    .legend-box {
+      cursor: pointer;
+    }
+    
+</style>
+
+<div id="fig_el99901402896594256164526835080"></div>
+<script>
+function mpld3_load_lib(url, callback){
+  var s = document.createElement('script');
+  s.src = url;
+  s.async = true;
+  s.onreadystatechange = s.onload = callback;
+  s.onerror = function(){console.warn("failed to load library " + url);};
+  document.getElementsByTagName("head")[0].appendChild(s);
+}
+
+if(typeof(mpld3) !== "undefined" && mpld3._mpld3IsLoaded){
+   // already loaded: just create the figure
+   !function(mpld3){
+       
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+       mpld3.draw_figure("fig_el99901402896594256164526835080", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.5, -0.030418470418470414], "rotation": -0.0, "id": "el9990140289654230800"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.018151078650165686, 0.5], "rotation": -90.0, "id": "el9990140289651606416"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (Random Forest) (utility_percentage)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.5, 1.0086580086580086], "rotation": -0.0, "id": "el9990140289651645968"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [-0.025, 0.525], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 8, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el9990140289651606864"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data02", "id": "el9990140289651783696"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data03", "id": "el9990140289651784592"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data04", "id": "el9990140289651785680"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data05", "id": "el9990140289651356688"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data06", "id": "el9990140289651357712"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data07", "id": "el9990140289651358736"}, {"drawstyle": "default", "color": "#7F7F7F", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data08", "id": "el9990140289651400784"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el9990140289651401808"}, {"drawstyle": "default", "color": "#17BECF", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data10", "id": "el9990140289651402832"}, {"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data11", "id": "el9990140289651403856"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data12", "id": "el9990140289651450000"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data13", "id": "el9990140289651451024"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data14", "id": "el9990140289651452048"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data15", "id": "el9990140289651453072"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data16", "id": "el9990140289651491024"}], "markers": [], "id": "el9990140289654228240", "ydomain": [-0.025, 0.525], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1250.0, "width": 2650.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el9990140289651606864", "el9990140289651606864pts"], ["el9990140289651783696", "el9990140289651783696pts"], ["el9990140289651784592", "el9990140289651784592pts"], ["el9990140289651785680", "el9990140289651785680pts"], ["el9990140289651356688", "el9990140289651356688pts"], ["el9990140289651357712", "el9990140289651357712pts"], ["el9990140289651358736", "el9990140289651358736pts"], ["el9990140289651400784", "el9990140289651400784pts"], ["el9990140289651401808", "el9990140289651401808pts"], ["el9990140289651402832", "el9990140289651402832pts"], ["el9990140289651403856", "el9990140289651403856pts"], ["el9990140289651450000", "el9990140289651450000pts"], ["el9990140289651451024", "el9990140289651451024pts"], ["el9990140289651452048", "el9990140289651452048pts"], ["el9990140289651453072", "el9990140289651453072pts"], ["el9990140289651491024", "el9990140289651491024pts"]], "labels": ["Commenting Government", "Relief Efforts", "Commenting Media Coverage", "Commenting Utility", "Well Wishes", "Thanks", "Related to Other Hurricanes", "Preparedness", "Status", "Response", "Looting", "Impact", "Other indirect Impact", "Price Gouging", "Requesting Help", "Recovery"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true], "type": "interactive_legend"}], "data": {"data12": [[736577.0, 0.0], [736578.0, 0.09090909090909091], [736579.0, 0.058823529411764705], [736580.0, 0.07936507936507936], [736581.0, 0.14893617021276595], [736582.0, 0.174496644295302], [736583.0, 0.1254355400696864], [736584.0, 0.12903225806451613], [736585.0, 0.1440536013400335], [736586.0, 0.12987012987012986], [736587.0, 0.09571788413098237], [736588.0, 0.1072463768115942], [736589.0, 0.09090909090909091], [736590.0, 0.12209302325581395], [736591.0, 0.0898876404494382], [736592.0, 0.1276595744680851], [736593.0, 0.0], [736594.0, 0.13793103448275862], [736595.0, 0.08333333333333333], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 0.0], [736600.0, 0.15384615384615385], [736601.0, 0.0]], "data16": [[736580.0, 0.0], [736582.0, 0.0], [736583.0, 0.010452961672473868], [736584.0, 0.011166253101736972], [736585.0, 0.020100502512562814], [736586.0, 0.010822510822510822], [736587.0, 0.0025188916876574307], [736588.0, 0.014492753623188406], [736589.0, 0.025974025974025976], [736590.0, 0.046511627906976744], [736592.0, 0.0]], "data11": [[736579.0, 0.0], [736580.0, 0.0], [736581.0, 0.02127659574468085], [736582.0, 0.013422818791946308], [736583.0, 0.029616724738675958], [736584.0, 0.03598014888337469], [736585.0, 0.04187604690117253], [736586.0, 0.03896103896103896], [736587.0, 0.04030226700251889], [736588.0, 0.0463768115942029], [736589.0, 0.021645021645021644], [736590.0, 0.029069767441860465], [736591.0, 0.0], [736594.0, 0.034482758620689655], [736597.0, 0.125]], "data14": [[736583.0, 0.0], [736585.0, 0.0033500837520938024], [736587.0, 0.0], [736589.0, 0.0], [736591.0, 0.0]], "data10": [[736578.0, 0.18181818181818182], [736579.0, 0.11764705882352941], [736580.0, 0.20634920634920634], [736581.0, 0.1276595744680851], [736582.0, 0.30201342281879195], [736583.0, 0.19337979094076654], [736584.0, 0.23076923076923078], [736585.0, 0.25125628140703515], [736586.0, 0.2554112554112554], [736587.0, 0.24937027707808565], [736588.0, 0.27246376811594203], [736589.0, 0.2727272727272727], [736590.0, 0.20930232558139536], [736591.0, 0.2696629213483146], [736592.0, 0.19148936170212766], [736593.0, 0.23809523809523808], [736594.0, 0.10344827586206896], [736595.0, 0.25], [736596.0, 0.5], [736597.0, 0.25], [736598.0, 0.25], [736599.0, 0.5], [736600.0, 0.15384615384615385], [736601.0, 0.3333333333333333]], "data15": [[736578.0, 0.0], [736579.0, 0.11764705882352941], [736580.0, 0.1111111111111111], [736581.0, 0.02127659574468085], [736582.0, 0.06040268456375839], [736583.0, 0.14634146341463414], [736584.0, 0.13771712158808933], [736585.0, 0.12562814070351758], [736586.0, 0.09740259740259741], [736587.0, 0.13350125944584382], [736588.0, 0.09565217391304348], [736589.0, 0.09523809523809523], [736590.0, 0.09302325581395349], [736591.0, 0.10112359550561797], [736593.0, 0.14285714285714285], [736594.0, 0.13793103448275862], [736595.0, 0.0], [736596.0, 0.0], [736598.0, 0.0], [736600.0, 0.07692307692307693]], "data08": [[736577.0, 0.0], [736579.0, 0.11764705882352941], [736580.0, 0.047619047619047616], [736581.0, 0.0425531914893617], [736582.0, 0.04697986577181208], [736583.0, 0.0313588850174216], [736584.0, 0.02357320099255583], [736585.0, 0.020100502512562814], [736586.0, 0.03463203463203463], [736587.0, 0.030226700251889168], [736588.0, 0.04927536231884058], [736589.0, 0.0735930735930736], [736590.0, 0.046511627906976744], [736591.0, 0.056179775280898875], [736592.0, 0.0425531914893617], [736593.0, 0.14285714285714285], [736594.0, 0.10344827586206896], [736598.0, 0.0], [736600.0, 0.0]], "data09": [[736576.0, 0.0], [736579.0, 0.0], [736580.0, 0.031746031746031744], [736581.0, 0.02127659574468085], [736582.0, 0.006711409395973154], [736583.0, 0.006968641114982578], [736584.0, 0.018610421836228287], [736585.0, 0.008375209380234505], [736586.0, 0.023809523809523808], [736587.0, 0.020151133501259445], [736588.0, 0.008695652173913044], [736589.0, 0.021645021645021644], [736590.0, 0.023255813953488372], [736591.0, 0.02247191011235955], [736593.0, 0.0], [736594.0, 0.0], [736600.0, 0.0]], "data06": [[736580.0, 0.015873015873015872], [736581.0, 0.0851063829787234], [736582.0, 0.026845637583892617], [736583.0, 0.14634146341463414], [736584.0, 0.0794044665012407], [736585.0, 0.07370184254606366], [736586.0, 0.05194805194805195], [736587.0, 0.07556675062972293], [736588.0, 0.06666666666666667], [736589.0, 0.05627705627705628], [736590.0, 0.040697674418604654], [736591.0, 0.011235955056179775], [736592.0, 0.0425531914893617], [736594.0, 0.034482758620689655], [736595.0, 0.08333333333333333], [736597.0, 0.0], [736598.0, 0.08333333333333333], [736601.0, 0.0]], "data07": [[736582.0, 0.0], [736583.0, 0.003484320557491289], [736584.0, 0.0024813895781637717], [736585.0, 0.0016750418760469012], [736586.0, 0.004329004329004329], [736587.0, 0.005037783375314861], [736588.0, 0.0], [736589.0, 0.004329004329004329], [736590.0, 0.0], [736591.0, 0.011235955056179775], [736594.0, 0.0]], "data04": [[736574.0, 0.0], [736576.0, 0.0], [736577.0, 0.0], [736578.0, 0.18181818181818182], [736579.0, 0.11764705882352941], [736580.0, 0.20634920634920634], [736581.0, 0.23404255319148937], [736582.0, 0.18120805369127516], [736583.0, 0.19686411149825783], [736584.0, 0.20719602977667495], [736585.0, 0.19262981574539365], [736586.0, 0.19913419913419914], [736587.0, 0.20654911838790932], [736588.0, 0.1855072463768116], [736589.0, 0.19480519480519481], [736590.0, 0.19767441860465115], [736591.0, 0.1348314606741573], [736592.0, 0.3617021276595745], [736593.0, 0.09523809523809523], [736594.0, 0.13793103448275862], [736595.0, 0.08333333333333333], [736597.0, 0.0], [736598.0, 0.08333333333333333], [736600.0, 0.15384615384615385]], "data05": [[736577.0, 0.0], [736578.0, 0.09090909090909091], [736580.0, 0.06349206349206349], [736581.0, 0.10638297872340426], [736582.0, 0.08053691275167785], [736583.0, 0.04529616724738676], [736584.0, 0.04714640198511166], [736585.0, 0.035175879396984924], [736586.0, 0.06277056277056277], [736587.0, 0.027707808564231738], [736588.0, 0.05507246376811594], [736589.0, 0.030303030303030304], [736590.0, 0.05813953488372093], [736591.0, 0.06741573033707865], [736592.0, 0.0], [736595.0, 0.0], [736601.0, 0.0]], "data02": [[736580.0, 0.0], [736582.0, 0.0], [736583.0, 0.010452961672473868], [736584.0, 0.009925558312655087], [736585.0, 0.005025125628140704], [736586.0, 0.006493506493506494], [736587.0, 0.022670025188916875], [736588.0, 0.0], [736589.0, 0.008658008658008658], [736590.0, 0.005813953488372093], [736591.0, 0.011235955056179775]], "data03": [[736577.0, 0.0], [736580.0, 0.015873015873015872], [736582.0, 0.013422818791946308], [736583.0, 0.02264808362369338], [736584.0, 0.02729528535980149], [736585.0, 0.018425460636515914], [736586.0, 0.025974025974025976], [736587.0, 0.022670025188916875], [736588.0, 0.028985507246376812], [736589.0, 0.017316017316017316], [736590.0, 0.01744186046511628], [736591.0, 0.02247191011235955], [736593.0, 0.0], [736596.0, 0.0], [736599.0, 0.0]], "data13": [[736579.0, 0.0], [736580.0, 0.015873015873015872], [736582.0, 0.0], [736584.0, 0.01240694789081886], [736585.0, 0.01675041876046901], [736586.0, 0.006493506493506494], [736587.0, 0.010075566750629723], [736588.0, 0.0], [736589.0, 0.012987012987012988], [736591.0, 0.0], [736592.0, 0.0], [736598.0, 0.0]], "data01": [[736583.0, 0.005226480836236934], [736584.0, 0.008684863523573201], [736585.0, 0.01507537688442211], [736586.0, 0.01948051948051948], [736587.0, 0.017632241813602016], [736588.0, 0.02608695652173913], [736589.0, 0.004329004329004329], [736590.0, 0.029069767441860465], [736591.0, 0.033707865168539325], [736592.0, 0.0425531914893617], [736593.0, 0.0]]}, "id": "el9990140289659425616"});
+   }(mpld3);
+}else if(typeof define === "function" && define.amd){
+   // require.js is available: use it to load d3/mpld3
+   require.config({paths: {d3: "https://mpld3.github.io/js/d3.v3.min"}});
+   require(["d3"], function(d3){
+      window.d3 = d3;
+      mpld3_load_lib("https://mpld3.github.io/js/mpld3.v0.3.js", function(){
+         
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+         mpld3.draw_figure("fig_el99901402896594256164526835080", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.5, -0.030418470418470414], "rotation": -0.0, "id": "el9990140289654230800"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.018151078650165686, 0.5], "rotation": -90.0, "id": "el9990140289651606416"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (Random Forest) (utility_percentage)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.5, 1.0086580086580086], "rotation": -0.0, "id": "el9990140289651645968"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [-0.025, 0.525], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 8, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el9990140289651606864"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data02", "id": "el9990140289651783696"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data03", "id": "el9990140289651784592"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data04", "id": "el9990140289651785680"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data05", "id": "el9990140289651356688"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data06", "id": "el9990140289651357712"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data07", "id": "el9990140289651358736"}, {"drawstyle": "default", "color": "#7F7F7F", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data08", "id": "el9990140289651400784"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el9990140289651401808"}, {"drawstyle": "default", "color": "#17BECF", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data10", "id": "el9990140289651402832"}, {"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data11", "id": "el9990140289651403856"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data12", "id": "el9990140289651450000"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data13", "id": "el9990140289651451024"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data14", "id": "el9990140289651452048"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data15", "id": "el9990140289651453072"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data16", "id": "el9990140289651491024"}], "markers": [], "id": "el9990140289654228240", "ydomain": [-0.025, 0.525], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1250.0, "width": 2650.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el9990140289651606864", "el9990140289651606864pts"], ["el9990140289651783696", "el9990140289651783696pts"], ["el9990140289651784592", "el9990140289651784592pts"], ["el9990140289651785680", "el9990140289651785680pts"], ["el9990140289651356688", "el9990140289651356688pts"], ["el9990140289651357712", "el9990140289651357712pts"], ["el9990140289651358736", "el9990140289651358736pts"], ["el9990140289651400784", "el9990140289651400784pts"], ["el9990140289651401808", "el9990140289651401808pts"], ["el9990140289651402832", "el9990140289651402832pts"], ["el9990140289651403856", "el9990140289651403856pts"], ["el9990140289651450000", "el9990140289651450000pts"], ["el9990140289651451024", "el9990140289651451024pts"], ["el9990140289651452048", "el9990140289651452048pts"], ["el9990140289651453072", "el9990140289651453072pts"], ["el9990140289651491024", "el9990140289651491024pts"]], "labels": ["Commenting Government", "Relief Efforts", "Commenting Media Coverage", "Commenting Utility", "Well Wishes", "Thanks", "Related to Other Hurricanes", "Preparedness", "Status", "Response", "Looting", "Impact", "Other indirect Impact", "Price Gouging", "Requesting Help", "Recovery"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true], "type": "interactive_legend"}], "data": {"data12": [[736577.0, 0.0], [736578.0, 0.09090909090909091], [736579.0, 0.058823529411764705], [736580.0, 0.07936507936507936], [736581.0, 0.14893617021276595], [736582.0, 0.174496644295302], [736583.0, 0.1254355400696864], [736584.0, 0.12903225806451613], [736585.0, 0.1440536013400335], [736586.0, 0.12987012987012986], [736587.0, 0.09571788413098237], [736588.0, 0.1072463768115942], [736589.0, 0.09090909090909091], [736590.0, 0.12209302325581395], [736591.0, 0.0898876404494382], [736592.0, 0.1276595744680851], [736593.0, 0.0], [736594.0, 0.13793103448275862], [736595.0, 0.08333333333333333], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 0.0], [736600.0, 0.15384615384615385], [736601.0, 0.0]], "data16": [[736580.0, 0.0], [736582.0, 0.0], [736583.0, 0.010452961672473868], [736584.0, 0.011166253101736972], [736585.0, 0.020100502512562814], [736586.0, 0.010822510822510822], [736587.0, 0.0025188916876574307], [736588.0, 0.014492753623188406], [736589.0, 0.025974025974025976], [736590.0, 0.046511627906976744], [736592.0, 0.0]], "data11": [[736579.0, 0.0], [736580.0, 0.0], [736581.0, 0.02127659574468085], [736582.0, 0.013422818791946308], [736583.0, 0.029616724738675958], [736584.0, 0.03598014888337469], [736585.0, 0.04187604690117253], [736586.0, 0.03896103896103896], [736587.0, 0.04030226700251889], [736588.0, 0.0463768115942029], [736589.0, 0.021645021645021644], [736590.0, 0.029069767441860465], [736591.0, 0.0], [736594.0, 0.034482758620689655], [736597.0, 0.125]], "data14": [[736583.0, 0.0], [736585.0, 0.0033500837520938024], [736587.0, 0.0], [736589.0, 0.0], [736591.0, 0.0]], "data10": [[736578.0, 0.18181818181818182], [736579.0, 0.11764705882352941], [736580.0, 0.20634920634920634], [736581.0, 0.1276595744680851], [736582.0, 0.30201342281879195], [736583.0, 0.19337979094076654], [736584.0, 0.23076923076923078], [736585.0, 0.25125628140703515], [736586.0, 0.2554112554112554], [736587.0, 0.24937027707808565], [736588.0, 0.27246376811594203], [736589.0, 0.2727272727272727], [736590.0, 0.20930232558139536], [736591.0, 0.2696629213483146], [736592.0, 0.19148936170212766], [736593.0, 0.23809523809523808], [736594.0, 0.10344827586206896], [736595.0, 0.25], [736596.0, 0.5], [736597.0, 0.25], [736598.0, 0.25], [736599.0, 0.5], [736600.0, 0.15384615384615385], [736601.0, 0.3333333333333333]], "data15": [[736578.0, 0.0], [736579.0, 0.11764705882352941], [736580.0, 0.1111111111111111], [736581.0, 0.02127659574468085], [736582.0, 0.06040268456375839], [736583.0, 0.14634146341463414], [736584.0, 0.13771712158808933], [736585.0, 0.12562814070351758], [736586.0, 0.09740259740259741], [736587.0, 0.13350125944584382], [736588.0, 0.09565217391304348], [736589.0, 0.09523809523809523], [736590.0, 0.09302325581395349], [736591.0, 0.10112359550561797], [736593.0, 0.14285714285714285], [736594.0, 0.13793103448275862], [736595.0, 0.0], [736596.0, 0.0], [736598.0, 0.0], [736600.0, 0.07692307692307693]], "data08": [[736577.0, 0.0], [736579.0, 0.11764705882352941], [736580.0, 0.047619047619047616], [736581.0, 0.0425531914893617], [736582.0, 0.04697986577181208], [736583.0, 0.0313588850174216], [736584.0, 0.02357320099255583], [736585.0, 0.020100502512562814], [736586.0, 0.03463203463203463], [736587.0, 0.030226700251889168], [736588.0, 0.04927536231884058], [736589.0, 0.0735930735930736], [736590.0, 0.046511627906976744], [736591.0, 0.056179775280898875], [736592.0, 0.0425531914893617], [736593.0, 0.14285714285714285], [736594.0, 0.10344827586206896], [736598.0, 0.0], [736600.0, 0.0]], "data09": [[736576.0, 0.0], [736579.0, 0.0], [736580.0, 0.031746031746031744], [736581.0, 0.02127659574468085], [736582.0, 0.006711409395973154], [736583.0, 0.006968641114982578], [736584.0, 0.018610421836228287], [736585.0, 0.008375209380234505], [736586.0, 0.023809523809523808], [736587.0, 0.020151133501259445], [736588.0, 0.008695652173913044], [736589.0, 0.021645021645021644], [736590.0, 0.023255813953488372], [736591.0, 0.02247191011235955], [736593.0, 0.0], [736594.0, 0.0], [736600.0, 0.0]], "data06": [[736580.0, 0.015873015873015872], [736581.0, 0.0851063829787234], [736582.0, 0.026845637583892617], [736583.0, 0.14634146341463414], [736584.0, 0.0794044665012407], [736585.0, 0.07370184254606366], [736586.0, 0.05194805194805195], [736587.0, 0.07556675062972293], [736588.0, 0.06666666666666667], [736589.0, 0.05627705627705628], [736590.0, 0.040697674418604654], [736591.0, 0.011235955056179775], [736592.0, 0.0425531914893617], [736594.0, 0.034482758620689655], [736595.0, 0.08333333333333333], [736597.0, 0.0], [736598.0, 0.08333333333333333], [736601.0, 0.0]], "data07": [[736582.0, 0.0], [736583.0, 0.003484320557491289], [736584.0, 0.0024813895781637717], [736585.0, 0.0016750418760469012], [736586.0, 0.004329004329004329], [736587.0, 0.005037783375314861], [736588.0, 0.0], [736589.0, 0.004329004329004329], [736590.0, 0.0], [736591.0, 0.011235955056179775], [736594.0, 0.0]], "data04": [[736574.0, 0.0], [736576.0, 0.0], [736577.0, 0.0], [736578.0, 0.18181818181818182], [736579.0, 0.11764705882352941], [736580.0, 0.20634920634920634], [736581.0, 0.23404255319148937], [736582.0, 0.18120805369127516], [736583.0, 0.19686411149825783], [736584.0, 0.20719602977667495], [736585.0, 0.19262981574539365], [736586.0, 0.19913419913419914], [736587.0, 0.20654911838790932], [736588.0, 0.1855072463768116], [736589.0, 0.19480519480519481], [736590.0, 0.19767441860465115], [736591.0, 0.1348314606741573], [736592.0, 0.3617021276595745], [736593.0, 0.09523809523809523], [736594.0, 0.13793103448275862], [736595.0, 0.08333333333333333], [736597.0, 0.0], [736598.0, 0.08333333333333333], [736600.0, 0.15384615384615385]], "data05": [[736577.0, 0.0], [736578.0, 0.09090909090909091], [736580.0, 0.06349206349206349], [736581.0, 0.10638297872340426], [736582.0, 0.08053691275167785], [736583.0, 0.04529616724738676], [736584.0, 0.04714640198511166], [736585.0, 0.035175879396984924], [736586.0, 0.06277056277056277], [736587.0, 0.027707808564231738], [736588.0, 0.05507246376811594], [736589.0, 0.030303030303030304], [736590.0, 0.05813953488372093], [736591.0, 0.06741573033707865], [736592.0, 0.0], [736595.0, 0.0], [736601.0, 0.0]], "data02": [[736580.0, 0.0], [736582.0, 0.0], [736583.0, 0.010452961672473868], [736584.0, 0.009925558312655087], [736585.0, 0.005025125628140704], [736586.0, 0.006493506493506494], [736587.0, 0.022670025188916875], [736588.0, 0.0], [736589.0, 0.008658008658008658], [736590.0, 0.005813953488372093], [736591.0, 0.011235955056179775]], "data03": [[736577.0, 0.0], [736580.0, 0.015873015873015872], [736582.0, 0.013422818791946308], [736583.0, 0.02264808362369338], [736584.0, 0.02729528535980149], [736585.0, 0.018425460636515914], [736586.0, 0.025974025974025976], [736587.0, 0.022670025188916875], [736588.0, 0.028985507246376812], [736589.0, 0.017316017316017316], [736590.0, 0.01744186046511628], [736591.0, 0.02247191011235955], [736593.0, 0.0], [736596.0, 0.0], [736599.0, 0.0]], "data13": [[736579.0, 0.0], [736580.0, 0.015873015873015872], [736582.0, 0.0], [736584.0, 0.01240694789081886], [736585.0, 0.01675041876046901], [736586.0, 0.006493506493506494], [736587.0, 0.010075566750629723], [736588.0, 0.0], [736589.0, 0.012987012987012988], [736591.0, 0.0], [736592.0, 0.0], [736598.0, 0.0]], "data01": [[736583.0, 0.005226480836236934], [736584.0, 0.008684863523573201], [736585.0, 0.01507537688442211], [736586.0, 0.01948051948051948], [736587.0, 0.017632241813602016], [736588.0, 0.02608695652173913], [736589.0, 0.004329004329004329], [736590.0, 0.029069767441860465], [736591.0, 0.033707865168539325], [736592.0, 0.0425531914893617], [736593.0, 0.0]]}, "id": "el9990140289659425616"});
+      });
+    });
+}else{
+    // require.js not available: dynamically load d3 & mpld3
+    mpld3_load_lib("https://mpld3.github.io/js/d3.v3.min.js", function(){
+         mpld3_load_lib("https://mpld3.github.io/js/mpld3.v0.3.js", function(){
+                 
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+                 mpld3.draw_figure("fig_el99901402896594256164526835080", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.5, -0.030418470418470414], "rotation": -0.0, "id": "el9990140289654230800"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.018151078650165686, 0.5], "rotation": -90.0, "id": "el9990140289651606416"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (Random Forest) (utility_percentage)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.5, 1.0086580086580086], "rotation": -0.0, "id": "el9990140289651645968"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [-0.025, 0.525], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 8, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el9990140289651606864"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data02", "id": "el9990140289651783696"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data03", "id": "el9990140289651784592"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data04", "id": "el9990140289651785680"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data05", "id": "el9990140289651356688"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data06", "id": "el9990140289651357712"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data07", "id": "el9990140289651358736"}, {"drawstyle": "default", "color": "#7F7F7F", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data08", "id": "el9990140289651400784"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el9990140289651401808"}, {"drawstyle": "default", "color": "#17BECF", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data10", "id": "el9990140289651402832"}, {"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data11", "id": "el9990140289651403856"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data12", "id": "el9990140289651450000"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data13", "id": "el9990140289651451024"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data14", "id": "el9990140289651452048"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data15", "id": "el9990140289651453072"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data16", "id": "el9990140289651491024"}], "markers": [], "id": "el9990140289654228240", "ydomain": [-0.025, 0.525], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1250.0, "width": 2650.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el9990140289651606864", "el9990140289651606864pts"], ["el9990140289651783696", "el9990140289651783696pts"], ["el9990140289651784592", "el9990140289651784592pts"], ["el9990140289651785680", "el9990140289651785680pts"], ["el9990140289651356688", "el9990140289651356688pts"], ["el9990140289651357712", "el9990140289651357712pts"], ["el9990140289651358736", "el9990140289651358736pts"], ["el9990140289651400784", "el9990140289651400784pts"], ["el9990140289651401808", "el9990140289651401808pts"], ["el9990140289651402832", "el9990140289651402832pts"], ["el9990140289651403856", "el9990140289651403856pts"], ["el9990140289651450000", "el9990140289651450000pts"], ["el9990140289651451024", "el9990140289651451024pts"], ["el9990140289651452048", "el9990140289651452048pts"], ["el9990140289651453072", "el9990140289651453072pts"], ["el9990140289651491024", "el9990140289651491024pts"]], "labels": ["Commenting Government", "Relief Efforts", "Commenting Media Coverage", "Commenting Utility", "Well Wishes", "Thanks", "Related to Other Hurricanes", "Preparedness", "Status", "Response", "Looting", "Impact", "Other indirect Impact", "Price Gouging", "Requesting Help", "Recovery"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true], "type": "interactive_legend"}], "data": {"data12": [[736577.0, 0.0], [736578.0, 0.09090909090909091], [736579.0, 0.058823529411764705], [736580.0, 0.07936507936507936], [736581.0, 0.14893617021276595], [736582.0, 0.174496644295302], [736583.0, 0.1254355400696864], [736584.0, 0.12903225806451613], [736585.0, 0.1440536013400335], [736586.0, 0.12987012987012986], [736587.0, 0.09571788413098237], [736588.0, 0.1072463768115942], [736589.0, 0.09090909090909091], [736590.0, 0.12209302325581395], [736591.0, 0.0898876404494382], [736592.0, 0.1276595744680851], [736593.0, 0.0], [736594.0, 0.13793103448275862], [736595.0, 0.08333333333333333], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 0.0], [736600.0, 0.15384615384615385], [736601.0, 0.0]], "data16": [[736580.0, 0.0], [736582.0, 0.0], [736583.0, 0.010452961672473868], [736584.0, 0.011166253101736972], [736585.0, 0.020100502512562814], [736586.0, 0.010822510822510822], [736587.0, 0.0025188916876574307], [736588.0, 0.014492753623188406], [736589.0, 0.025974025974025976], [736590.0, 0.046511627906976744], [736592.0, 0.0]], "data11": [[736579.0, 0.0], [736580.0, 0.0], [736581.0, 0.02127659574468085], [736582.0, 0.013422818791946308], [736583.0, 0.029616724738675958], [736584.0, 0.03598014888337469], [736585.0, 0.04187604690117253], [736586.0, 0.03896103896103896], [736587.0, 0.04030226700251889], [736588.0, 0.0463768115942029], [736589.0, 0.021645021645021644], [736590.0, 0.029069767441860465], [736591.0, 0.0], [736594.0, 0.034482758620689655], [736597.0, 0.125]], "data14": [[736583.0, 0.0], [736585.0, 0.0033500837520938024], [736587.0, 0.0], [736589.0, 0.0], [736591.0, 0.0]], "data10": [[736578.0, 0.18181818181818182], [736579.0, 0.11764705882352941], [736580.0, 0.20634920634920634], [736581.0, 0.1276595744680851], [736582.0, 0.30201342281879195], [736583.0, 0.19337979094076654], [736584.0, 0.23076923076923078], [736585.0, 0.25125628140703515], [736586.0, 0.2554112554112554], [736587.0, 0.24937027707808565], [736588.0, 0.27246376811594203], [736589.0, 0.2727272727272727], [736590.0, 0.20930232558139536], [736591.0, 0.2696629213483146], [736592.0, 0.19148936170212766], [736593.0, 0.23809523809523808], [736594.0, 0.10344827586206896], [736595.0, 0.25], [736596.0, 0.5], [736597.0, 0.25], [736598.0, 0.25], [736599.0, 0.5], [736600.0, 0.15384615384615385], [736601.0, 0.3333333333333333]], "data15": [[736578.0, 0.0], [736579.0, 0.11764705882352941], [736580.0, 0.1111111111111111], [736581.0, 0.02127659574468085], [736582.0, 0.06040268456375839], [736583.0, 0.14634146341463414], [736584.0, 0.13771712158808933], [736585.0, 0.12562814070351758], [736586.0, 0.09740259740259741], [736587.0, 0.13350125944584382], [736588.0, 0.09565217391304348], [736589.0, 0.09523809523809523], [736590.0, 0.09302325581395349], [736591.0, 0.10112359550561797], [736593.0, 0.14285714285714285], [736594.0, 0.13793103448275862], [736595.0, 0.0], [736596.0, 0.0], [736598.0, 0.0], [736600.0, 0.07692307692307693]], "data08": [[736577.0, 0.0], [736579.0, 0.11764705882352941], [736580.0, 0.047619047619047616], [736581.0, 0.0425531914893617], [736582.0, 0.04697986577181208], [736583.0, 0.0313588850174216], [736584.0, 0.02357320099255583], [736585.0, 0.020100502512562814], [736586.0, 0.03463203463203463], [736587.0, 0.030226700251889168], [736588.0, 0.04927536231884058], [736589.0, 0.0735930735930736], [736590.0, 0.046511627906976744], [736591.0, 0.056179775280898875], [736592.0, 0.0425531914893617], [736593.0, 0.14285714285714285], [736594.0, 0.10344827586206896], [736598.0, 0.0], [736600.0, 0.0]], "data09": [[736576.0, 0.0], [736579.0, 0.0], [736580.0, 0.031746031746031744], [736581.0, 0.02127659574468085], [736582.0, 0.006711409395973154], [736583.0, 0.006968641114982578], [736584.0, 0.018610421836228287], [736585.0, 0.008375209380234505], [736586.0, 0.023809523809523808], [736587.0, 0.020151133501259445], [736588.0, 0.008695652173913044], [736589.0, 0.021645021645021644], [736590.0, 0.023255813953488372], [736591.0, 0.02247191011235955], [736593.0, 0.0], [736594.0, 0.0], [736600.0, 0.0]], "data06": [[736580.0, 0.015873015873015872], [736581.0, 0.0851063829787234], [736582.0, 0.026845637583892617], [736583.0, 0.14634146341463414], [736584.0, 0.0794044665012407], [736585.0, 0.07370184254606366], [736586.0, 0.05194805194805195], [736587.0, 0.07556675062972293], [736588.0, 0.06666666666666667], [736589.0, 0.05627705627705628], [736590.0, 0.040697674418604654], [736591.0, 0.011235955056179775], [736592.0, 0.0425531914893617], [736594.0, 0.034482758620689655], [736595.0, 0.08333333333333333], [736597.0, 0.0], [736598.0, 0.08333333333333333], [736601.0, 0.0]], "data07": [[736582.0, 0.0], [736583.0, 0.003484320557491289], [736584.0, 0.0024813895781637717], [736585.0, 0.0016750418760469012], [736586.0, 0.004329004329004329], [736587.0, 0.005037783375314861], [736588.0, 0.0], [736589.0, 0.004329004329004329], [736590.0, 0.0], [736591.0, 0.011235955056179775], [736594.0, 0.0]], "data04": [[736574.0, 0.0], [736576.0, 0.0], [736577.0, 0.0], [736578.0, 0.18181818181818182], [736579.0, 0.11764705882352941], [736580.0, 0.20634920634920634], [736581.0, 0.23404255319148937], [736582.0, 0.18120805369127516], [736583.0, 0.19686411149825783], [736584.0, 0.20719602977667495], [736585.0, 0.19262981574539365], [736586.0, 0.19913419913419914], [736587.0, 0.20654911838790932], [736588.0, 0.1855072463768116], [736589.0, 0.19480519480519481], [736590.0, 0.19767441860465115], [736591.0, 0.1348314606741573], [736592.0, 0.3617021276595745], [736593.0, 0.09523809523809523], [736594.0, 0.13793103448275862], [736595.0, 0.08333333333333333], [736597.0, 0.0], [736598.0, 0.08333333333333333], [736600.0, 0.15384615384615385]], "data05": [[736577.0, 0.0], [736578.0, 0.09090909090909091], [736580.0, 0.06349206349206349], [736581.0, 0.10638297872340426], [736582.0, 0.08053691275167785], [736583.0, 0.04529616724738676], [736584.0, 0.04714640198511166], [736585.0, 0.035175879396984924], [736586.0, 0.06277056277056277], [736587.0, 0.027707808564231738], [736588.0, 0.05507246376811594], [736589.0, 0.030303030303030304], [736590.0, 0.05813953488372093], [736591.0, 0.06741573033707865], [736592.0, 0.0], [736595.0, 0.0], [736601.0, 0.0]], "data02": [[736580.0, 0.0], [736582.0, 0.0], [736583.0, 0.010452961672473868], [736584.0, 0.009925558312655087], [736585.0, 0.005025125628140704], [736586.0, 0.006493506493506494], [736587.0, 0.022670025188916875], [736588.0, 0.0], [736589.0, 0.008658008658008658], [736590.0, 0.005813953488372093], [736591.0, 0.011235955056179775]], "data03": [[736577.0, 0.0], [736580.0, 0.015873015873015872], [736582.0, 0.013422818791946308], [736583.0, 0.02264808362369338], [736584.0, 0.02729528535980149], [736585.0, 0.018425460636515914], [736586.0, 0.025974025974025976], [736587.0, 0.022670025188916875], [736588.0, 0.028985507246376812], [736589.0, 0.017316017316017316], [736590.0, 0.01744186046511628], [736591.0, 0.02247191011235955], [736593.0, 0.0], [736596.0, 0.0], [736599.0, 0.0]], "data13": [[736579.0, 0.0], [736580.0, 0.015873015873015872], [736582.0, 0.0], [736584.0, 0.01240694789081886], [736585.0, 0.01675041876046901], [736586.0, 0.006493506493506494], [736587.0, 0.010075566750629723], [736588.0, 0.0], [736589.0, 0.012987012987012988], [736591.0, 0.0], [736592.0, 0.0], [736598.0, 0.0]], "data01": [[736583.0, 0.005226480836236934], [736584.0, 0.008684863523573201], [736585.0, 0.01507537688442211], [736586.0, 0.01948051948051948], [736587.0, 0.017632241813602016], [736588.0, 0.02608695652173913], [736589.0, 0.004329004329004329], [736590.0, 0.029069767441860465], [736591.0, 0.033707865168539325], [736592.0, 0.0425531914893617], [736593.0, 0.0]]}, "id": "el9990140289659425616"});
+            })
+         });
+}
+</script>
