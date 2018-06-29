@@ -35,6 +35,7 @@ for row in csv_f:
 			count_dict[date] += 1.0
 
 
+fig, ax = plt.subplots()
 colors = len(date_dict.keys())
 cm = plt.get_cmap('tab20')
 fig = plt.figure()
@@ -47,8 +48,6 @@ label_titles = ['Unrelated', 'Preparedness', 'Response', 'Status', 'Impact', 'Lo
 ordered_titles = []
 
 line_collections = []
-
-fig, ax = plt.subplots()
 
 for k, v in date_dict.iteritems():
 	tmp_dict = {}
@@ -77,7 +76,6 @@ ax.set_title("Topics Distribution During Hurricane Irma (Random Forest) (" + nam
 mpld3.plugins.connect(fig, interactive_legend)
 fig.set_size_inches(26.5, 12.5)
 fig.savefig("results/" + name + "_rf_graph.png")
-#mpld3.show()
 html_string = mpld3.fig_to_html(fig)
 figure = open('results/' + name + '.html', 'w')
 figure.write(html_string)
