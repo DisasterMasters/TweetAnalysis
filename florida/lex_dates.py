@@ -4,22 +4,30 @@ import io
 from crisislex import Crisislex
 import pandas as pd
 from datetime import datetime
+import sys
 
-file = io.open("training_data/dates.txt", "w", encoding="utf-8", errors="ignore")
-csv_f= open("results/utility_lexfiltered.csv", "w")
-output = csv.writer(csv_f)
+typeoffile = sys.argv[1]
+outfile = 'training_data/dates.txt'
+if typeoffile == 'media':
+	outfile = 'training_data/m_dates.txt'
+
+file = io.open(outfile, "w", encoding="utf-8", errors="ignore")
+#csv_f= open("results/media_lexfiltered.csv", "w")
+#output = csv.writer(csv_f)
 
 c_lex = Crisislex()
 lex = c_lex.lex
 
 flag = 0
 
-for dirs, subdirs, files in os.walk("utility"):
+for dirs, subdirs, files in os.walk(typeoffile):
 	for fname in files:
 		if fname.endswith(".csv"): 
 			f = open(dirs + "/" + fname, "r")
 			name = str(fname)
 			csv_f = csv.reader(f)
+			if name != 'FloridaMediaTweets.csv' and typeoffile == 'media':
+				csv_f = csv.reader(f, delimiter='|')
 			header = next(csv_f, None) #skip header, save for output
 			if flag == 0:
 				output.writerow(header)
@@ -40,7 +48,7 @@ for dirs, subdirs, files in os.walk("utility"):
 							text = text + "\t"
 							text = text.decode('utf-8', errors='ignore')
 							file.write(text)
-							output.writerow(row)
+							#output.writerow(row)
 
 file.close()
 				

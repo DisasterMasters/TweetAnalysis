@@ -11,6 +11,7 @@ import re
 import math
 import random
 from itertools import repeat
+import sys
 
 
 tweets = []
@@ -18,20 +19,21 @@ labels_list = []
 
 tweetlabel_dict = {}
 
-file = open("training_data/updated_coding.csv") 
+file = open("training_data/coding_7_3.csv") 
 csv_read = csv.reader(file)
 header = csv_read.next()
 for row in csv_read:
-	label = row[12]
-	if '.' in label:
-		label = re.match(r'^(.*?)\..*', label).group(1)
-	label = int(label)
-	tweet = row[14]
-	if label != 17:
-		if label not in tweetlabel_dict:
-			tweetlabel_dict[label] = [tweet]
-		else:
-			tweetlabel_dict[label].append(tweet)
+	if row[1] != '':
+		label = row[1]
+		if '.' in label:
+			label = re.match(r'^(.*?)\..*', label).group(1)
+		label = int(label)
+		tweet = row[0]
+		if label != 17:
+			if label not in tweetlabel_dict:
+				tweetlabel_dict[label] = [tweet]
+			else:
+				tweetlabel_dict[label].append(tweet)
 
 tweets = []
 labels_list = []
@@ -69,7 +71,13 @@ print count_dict
 date_dict = {}
 
 test_data = []
-file = open("training_data/m_dates.txt", "r")
+
+typeoffile = sys.argv[1] #media or utility
+file_name = 'dates'
+if typeoffile == 'media':
+	file_name = 'm_dates'
+
+file = open("training_data/" + file_name + ".txt", "r")
 w = file.read()
 test = w.split("\t")
 for t in test:
@@ -100,7 +108,7 @@ X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
 clf = RandomForestClassifier().fit(X_train_tfidf, y_train)
 
 
-outfile = open("results/media_supervised_rf.csv", "w")
+outfile = open("results/" + typeoffile + "_supervised_rf.csv", "w")
 writer = csv.writer(outfile)
 writer.writerow(['Tweet', 'Category', 'Date', 'Permalink'])
 
