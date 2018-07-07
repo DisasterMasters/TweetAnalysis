@@ -29,9 +29,9 @@ for dirs, subdirs, files in os.walk(typeoffile):
 			if name != 'FloridaMediaTweets.csv' and typeoffile == 'media':
 				csv_f = csv.reader(f, delimiter='|')
 			header = next(csv_f, None) #skip header, save for output
-			if flag == 0:
-				output.writerow(header)
-				flag = 1
+			#if flag == 0:
+				#output.writerow(header)
+				#flag = 1
 			for row in csv_f:
 				if len(row) > 9:
 					if any(txt in row[4] for txt in lex):

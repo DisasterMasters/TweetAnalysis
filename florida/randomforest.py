@@ -12,6 +12,7 @@ import math
 import random
 from itertools import repeat
 import sys
+import os
 
 
 tweets = []
@@ -19,25 +20,30 @@ labels_list = []
 
 tweetlabel_dict = {}
 
-file = open("training_data/coding_7_3.csv") 
-csv_read = csv.reader(file)
-header = csv_read.next()
-for row in csv_read:
-	if row[1] != '':
-		label = row[1]
-		if '.' in label:
-			label = re.match(r'^(.*?)\..*', label).group(1)
-		label = int(label)
-		tweet = row[0]
-		if label != 17:
-			if label not in tweetlabel_dict:
-				tweetlabel_dict[label] = [tweet]
-			else:
-				tweetlabel_dict[label].append(tweet)
+#reading in training data
+for dirs, subdirs, files in os.walk("training_data/supervised_data"):  #all data for supervised learning should be put in this directory
+	for fname in files:
+		file = open(dirs + "/" + fname, "r")
+		csv_read = csv.reader(file)
+		header = csv_read.next()
+		for row in csv_read:
+			if row[1] != '': #try to keep tweet as first entry and label as second
+				label = row[1]
+				if '.' in label: #get rid of decimal labeling if there is any
+					label = re.match(r'^(.*?)\..*', label).group(1)
+				label = int(label)
+				tweet = row[0]
+				if label != 17: #ignore label 17 ('not sure')
+					#put into dictionary so we can count the tweets per label
+					if label not in tweetlabel_dict:
+						tweetlabel_dict[label] = [tweet]
+					else:
+						tweetlabel_dict[label].append(tweet)
 
 tweets = []
 labels_list = []
 
+#balancing out the training data (~500 in each category)
 for k, v in tweetlabel_dict.iteritems():
 	
 	if len(v) > 500:
@@ -52,24 +58,8 @@ for k, v in tweetlabel_dict.iteritems():
 			for vals in v:
 				tweets.append(vals)
 				labels_list.append(k)	
-'''
-file = open("tmp.csv", "w")
-csv_w = csv.writer(file)
-csv_w.writerow(["Tweet", "Label"])
-count_dict = {}
-for l, t in itertools.izip(labels_list, tweets):
-	if l not in count_dict:
-		count_dict[l] = 1
-	else:
-		count_dict[l] += 1
-	csv_w.writerow([t, str(l)])
-
-print count_dict
-'''
-
 
 date_dict = {}
-
 test_data = []
 
 typeoffile = sys.argv[1] #media or utility
@@ -77,6 +67,7 @@ file_name = 'dates'
 if typeoffile == 'media':
 	file_name = 'm_dates'
 
+#open test data obtained from media/utility file, parse
 file = open("training_data/" + file_name + ".txt", "r")
 w = file.read()
 test = w.split("\t")
@@ -91,15 +82,18 @@ for t in test:
 					date = datetime.strptime(t[1], '%m/%d/%Y')
 				elif '-' in t[1]:
 					date = datetime.strptime(t[1], '%Y-%m-%d')
+				#make sure only data from september is included
 				start = datetime(year=2017, month=9, day=1)
 				end = datetime(year=2017, month=9, day=30)
 				if start < date < end:
 					test_data.append([t[0], date, t[2]])
 
+#fit tf-idf with the training data
 tfidf = TfidfVectorizer(sublinear_tf=True, min_df=5, norm='l2', encoding='latin-1', ngram_range=(1, 2), stop_words='english')
 features = tfidf.fit_transform(tweets).toarray()
 labels = labels_list
 
+#train the model 
 X_train, X_test, y_train, y_test = train_test_split(tweets, labels, random_state = 0)
 count_vect = CountVectorizer()
 X_train_counts = count_vect.fit_transform(X_train)
@@ -107,27 +101,16 @@ tfidf_transformer = TfidfTransformer()
 X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
 clf = RandomForestClassifier().fit(X_train_tfidf, y_train)
 
-
+#open predictions file for writing
 outfile = open("results/" + typeoffile + "_supervised_rf.csv", "w")
 writer = csv.writer(outfile)
 writer.writerow(['Tweet', 'Category', 'Date', 'Permalink'])
 
-
+#make prediction for each tweet, write to file
 for t in test_data:
 	vect = count_vect.transform([t[0]])
 	prediction = clf.predict(vect)
+	#writing tweet, prediction, date, and permalink
 	writer.writerow([t[0], int(prediction), t[1].strftime('%m/%d/%Y'), t[2]])
 	
-#probs = pd.DataFrame(clf.predict_proba(tweet_test))
 
-'''
-def writeFile(category):
-
-	
-	cat = probs.sort_values(category, ascending=False).index
-	for i, v in enumerate(test_data):
-		if i in cat:
-			writer.writerow([v, category])
-
-for i in range(0, list_end):
-	writeFile(i)'''
