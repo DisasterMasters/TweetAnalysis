@@ -15,6 +15,8 @@ from gensim import utils
 from gensim.models import Doc2Vec
 import gensim
 import numpy as np
+import nltk
+import io
 
 #from medium.com (mostly)
 class LabeledLineSentence(object):
@@ -25,6 +27,8 @@ class LabeledLineSentence(object):
 
 	def __iter__(self):
 		for t, l in itertools.izip(self.doc_list, self.labels_list):
+			t = t.decode('utf-8')
+			t = nltk.word_tokenize(t)
 			yield gensim.models.doc2vec.LabeledSentence(t, [l])
 
 
@@ -76,12 +80,9 @@ training_data = LabeledLineSentence(tweets, labels_list)
 	
 	
 #build the doc2vec model
-model = Doc2Vec(vector_size=300, alpha=0.025, min_alpha=0.00025, min_count=0, dm=1)
+model = Doc2Vec(vector_size=100, min_count=1, dm=1)
 model.build_vocab(training_data)
-for epoch in range(10):
-	model.train(training_data, total_examples=model.corpus_count, epochs=model.epochs)
-	model.alpha -= 0.0002
-	model.min_alpha = model.alpha
+model.train(training_data, total_examples=model.corpus_count, epochs=20)
 
 
 #put tweets into classifier
@@ -107,7 +108,7 @@ if typeoffile == 'media':
 	file_name = 'm_dates'
 
 #open test data obtained from media/utility file, parse
-file = open("training_data/" + file_name + ".txt", "r")
+file = open("training_data/" + file_name + ".txt")
 w = file.read()
 test = w.split("\t")
 for t in test:
@@ -133,12 +134,15 @@ outfile = open("results/" + typeoffile + "_supervised_rf_doc2vec.csv", "w")
 writer = csv.writer(outfile)
 writer.writerow(['Tweet', 'Category', 'Date', 'Permalink'])
 
-count_vect = CountVectorizer()
 
 #make prediction for each tweet, write to file
 for t in test_data:
-	vect = count_vect.transform([t[0]])
-	prediction = clf.predict(t[0])
+	split = t[0].decode('utf-8')
+	split = nltk.word_tokenize(split)
+        vect = model.infer_vector(split)
+	vect = vect.reshape(1, -1)
+	prediction = clf.predict(vect)
+	print prediction
 	#writing tweet, prediction, date, and permalink
 	writer.writerow([t[0], int(prediction), t[1].strftime('%m/%d/%Y'), t[2]])
 	
