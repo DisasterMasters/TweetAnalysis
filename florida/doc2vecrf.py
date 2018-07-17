@@ -74,15 +74,15 @@ for k, v in tweetlabel_dict.iteritems():
 		for i in range (0, int(iters)):
 			for vals in v:
 				tweets.append(vals)
-				labels_list.append(k)
+				labels_list.append(str(k))
 
 training_data = LabeledLineSentence(tweets, labels_list)
 	
 	
 #build the doc2vec model
-model = Doc2Vec(vector_size=100, min_count=1, dm=1)
+model = Doc2Vec(vector_size=50, min_count=3, dm=1)
 model.build_vocab(training_data)
-model.train(training_data, total_examples=model.corpus_count, epochs=20)
+model.train(training_data, total_examples=model.corpus_count, epochs=200)
 
 
 #put tweets into classifier
