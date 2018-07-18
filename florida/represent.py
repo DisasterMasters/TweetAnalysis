@@ -9,7 +9,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 
 docs = []
-with open("training_data/dates.txt") as file:
+with open("training_data/n_dates.txt") as file:
         for line in file:
                 docs = line.split("\t")
 
@@ -28,6 +28,7 @@ def getIndices(full_categories, selections):
                 if v in s:
                         select.append(v)
                         indices.append(k)
+
         return indices, select
 
 
@@ -57,6 +58,8 @@ def getTweets(indices, weights, title):
                 subtweet_list = compileTweets(tweet_index, title, i)
                 topic = computeSimilarity(subtweet_list, title)
                 tweet_dict[topic] = [subtweet_list]
+	for k, v in tweet_dict.iteritems():
+		print k, v
         return tweet_dict
 
 def computeSimilarity(subtweet_list, title):
@@ -77,7 +80,7 @@ def computeIndices(selected_list, topic_num):
         top_score = {}
         for k, v in enumerate(selected_list):
                 val = v[topic_num]
-                if val != 0.0:
+                if val == max(v):
                         top_score[k] = val
 
         sorted_scores = sorted(top_score.items(), key=operator.itemgetter(1), reverse=True)
@@ -88,23 +91,20 @@ def compileTweets(tweet_index, title, i):
         tweet_list = []
         for t in tweet_index:
 				index = t[0]
-				tweet = docs[index].split('+++')[0]
-				date = docs[index].split('+++')[1]
-				id = docs[index].split('+++')[2]
-				if len(tweet_list) < 1000:
-					tweet_list.append([tweet, date, id])
-				else:
-					break
+				tweet = docs[index].split('~+&$!sep779++')[0]
+				date = docs[index].split('~+&$!sep779++')[1]
+				id = docs[index].split('~+&$!sep779++')[2]
+				tweet_list.append([tweet, date, id])
 
         return tweet_list
 
-left_categories = open("results/topics.txt", "r") #the categories for a tweet
-left_weights = open("results/W_indices.txt", "r") #their weights
-left_selections = open("results/topics.txt", "r") #categories selected
+left_categories = open("results/n_topics.txt", "r") #the categories for a tweet
+left_weights = open("results/W_indices_n.txt", "r") #their weights
+left_selections = open("results/n_topics.txt", "r") #categories selected
 
 left_indices, left_title = getIndices(left_categories, left_selections)
 
-left = open("results/representation.csv", "w")
+left = open("results/representation_n.csv", "w")
 left_tweets = getTweets(left_indices, left_weights, left_title)
 
 left = csv.writer(left)
