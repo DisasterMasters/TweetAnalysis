@@ -1,0 +1,485 @@
+
+
+<style>
+
+    .legend-box {
+      cursor: pointer;
+    }
+    
+</style>
+
+<div id="fig_el97131401666133189922847524004"></div>
+<script>
+function mpld3_load_lib(url, callback){
+  var s = document.createElement('script');
+  s.src = url;
+  s.async = true;
+  s.onreadystatechange = s.onload = callback;
+  s.onerror = function(){console.warn("failed to load library " + url);};
+  document.getElementsByTagName("head")[0].appendChild(s);
+}
+
+if(typeof(mpld3) !== "undefined" && mpld3._mpld3IsLoaded){
+   // already loaded: just create the figure
+   !function(mpld3){
+       
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+       mpld3.draw_figure("fig_el97131401666133189922847524004", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.49999999999999994, -0.024531024531024515], "rotation": -0.0, "id": "el9713140166594780560"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.0082054228569865, 0.5], "rotation": -90.0, "id": "el9713140166594839056"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (NMF) (utility_counts)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.49999999999999994, 1.0069822650467812], "rotation": -0.0, "id": "el9713140166594882704"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [-10.350000000000001, 217.35], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 7, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el9713140166594839504"}, {"drawstyle": "default", "color": "#AEC7E8", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data02", "id": "el9713140166594496464"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data03", "id": "el9713140166594497296"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data04", "id": "el9713140166594498384"}, {"drawstyle": "default", "color": "#98DF8A", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data05", "id": "el9713140166594605968"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data06", "id": "el9713140166594606992"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data07", "id": "el9713140166594608016"}, {"drawstyle": "default", "color": "#C5B0D5", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data08", "id": "el9713140166594609040"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el9713140166594651088"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data10", "id": "el9713140166594652112"}, {"drawstyle": "default", "color": "#F7B6D2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data11", "id": "el9713140166594653136"}, {"drawstyle": "default", "color": "#7F7F7F", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data12", "id": "el9713140166594654160"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data13", "id": "el9713140166594700304"}, {"drawstyle": "default", "color": "#DBDB8D", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data14", "id": "el9713140166594701328"}, {"drawstyle": "default", "color": "#17BECF", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data15", "id": "el9713140166594702352"}], "markers": [], "id": "el9713140166594777872", "ydomain": [-10.350000000000001, 217.35], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1550.0, "width": 6550.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el9713140166594839504", "el9713140166594839504pts"], ["el9713140166594496464", "el9713140166594496464pts"], ["el9713140166594497296", "el9713140166594497296pts"], ["el9713140166594498384", "el9713140166594498384pts"], ["el9713140166594605968", "el9713140166594605968pts"], ["el9713140166594606992", "el9713140166594606992pts"], ["el9713140166594608016", "el9713140166594608016pts"], ["el9713140166594609040", "el9713140166594609040pts"], ["el9713140166594651088", "el9713140166594651088pts"], ["el9713140166594652112", "el9713140166594652112pts"], ["el9713140166594653136", "el9713140166594653136pts"], ["el9713140166594654160", "el9713140166594654160pts"], ["el9713140166594700304", "el9713140166594700304pts"], ["el9713140166594701328", "el9713140166594701328pts"], ["el9713140166594702352", "el9713140166594702352pts"]], "labels": ["hurricaneirma florida thanks irma million post aftermath workers crews help", "power restored lost day restore lines neighborhood need street restoring", "just got know want affected like tell came make getting", "deadline midnight pinellas hours don make meet going sunday county", "area lines seen trucks truck haven affected downed single trees", "residents county fl florida elderly city need help electricity duke", "days ago 10 ve got fl electricity weeks truck assess", "damage assessing assess crews major time minimal did neighborhood duke", "emergency duke work isn state energy considered line non 9pm", "people home nursing dead affected heat elderly florida died hollywood", "hurricane irma florida hit duke fl energy ly prepared like", "com twitter status stat irma news sta tus st miami", "storm hit tropical cat lost did went winds ready prepared", "fpl miami irma outages news miaminewtimes fru strated 9666311 com", "thank hard working work hurricaneimra crews getting recovery guys safety"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true], "type": "interactive_legend"}], "data": {"data12": [[736577.0, 0.0], [736580.0, 4.0], [736581.0, 4.0], [736582.0, 24.0], [736583.0, 38.0], [736584.0, 39.0], [736585.0, 37.0], [736586.0, 32.0], [736587.0, 21.0], [736588.0, 26.0], [736589.0, 18.0], [736590.0, 13.0], [736591.0, 7.0], [736592.0, 2.0], [736593.0, 3.0], [736594.0, 3.0], [736595.0, 0.0], [736596.0, 0.0], [736598.0, 4.0], [736599.0, 0.0], [736601.0, 2.0]], "data11": [[736576.0, 1.0], [736577.0, 2.0], [736578.0, 0.0], [736579.0, 7.0], [736580.0, 15.0], [736581.0, 8.0], [736582.0, 35.0], [736583.0, 72.0], [736584.0, 85.0], [736585.0, 66.0], [736586.0, 65.0], [736587.0, 72.0], [736588.0, 54.0], [736589.0, 29.0], [736590.0, 18.0], [736591.0, 15.0], [736592.0, 5.0], [736593.0, 5.0], [736594.0, 4.0], [736595.0, 4.0], [736596.0, 2.0], [736597.0, 0.0], [736598.0, 5.0], [736599.0, 3.0], [736600.0, 6.0], [736601.0, 1.0]], "data14": [[736574.0, 0.0], [736578.0, 1.0], [736579.0, 1.0], [736580.0, 12.0], [736581.0, 6.0], [736582.0, 21.0], [736583.0, 44.0], [736584.0, 44.0], [736585.0, 45.0], [736586.0, 32.0], [736587.0, 35.0], [736588.0, 33.0], [736589.0, 22.0], [736590.0, 14.0], [736591.0, 7.0], [736592.0, 15.0], [736593.0, 1.0], [736594.0, 3.0], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 0.0]], "data10": [[736577.0, 0.0], [736580.0, 4.0], [736581.0, 2.0], [736582.0, 17.0], [736583.0, 54.0], [736584.0, 87.0], [736585.0, 119.0], [736586.0, 82.0], [736587.0, 54.0], [736588.0, 54.0], [736589.0, 22.0], [736590.0, 10.0], [736591.0, 10.0], [736592.0, 3.0], [736594.0, 0.0], [736595.0, 0.0], [736597.0, 1.0], [736598.0, 0.0], [736600.0, 0.0], [736601.0, 1.0]], "data15": [[736578.0, 0.0], [736579.0, 0.0], [736580.0, 5.0], [736581.0, 8.0], [736582.0, 31.0], [736583.0, 111.0], [736584.0, 91.0], [736585.0, 62.0], [736586.0, 48.0], [736587.0, 36.0], [736588.0, 35.0], [736589.0, 17.0], [736590.0, 12.0], [736591.0, 6.0], [736592.0, 7.0], [736593.0, 2.0], [736594.0, 4.0], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 2.0], [736599.0, 0.0]], "data08": [[736578.0, 0.0], [736579.0, 0.0], [736580.0, 0.0], [736581.0, 0.0], [736582.0, 13.0], [736583.0, 106.0], [736584.0, 207.0], [736585.0, 65.0], [736586.0, 61.0], [736587.0, 43.0], [736588.0, 41.0], [736589.0, 15.0], [736590.0, 21.0], [736591.0, 5.0], [736592.0, 3.0], [736593.0, 2.0], [736595.0, 0.0], [736597.0, 0.0], [736598.0, 0.0], [736601.0, 0.0]], "data09": [[736576.0, 0.0], [736579.0, 0.0], [736580.0, 2.0], [736581.0, 2.0], [736582.0, 7.0], [736583.0, 20.0], [736584.0, 44.0], [736585.0, 65.0], [736586.0, 69.0], [736587.0, 29.0], [736588.0, 36.0], [736589.0, 7.0], [736590.0, 5.0], [736591.0, 5.0], [736592.0, 6.0], [736593.0, 2.0], [736594.0, 0.0], [736595.0, 0.0], [736596.0, 0.0], [736598.0, 0.0], [736600.0, 0.0]], "data06": [[736578.0, 0.0], [736580.0, 2.0], [736581.0, 0.0], [736582.0, 12.0], [736583.0, 35.0], [736584.0, 60.0], [736585.0, 49.0], [736586.0, 42.0], [736587.0, 29.0], [736588.0, 26.0], [736589.0, 20.0], [736590.0, 17.0], [736591.0, 3.0], [736592.0, 0.0], [736593.0, 1.0], [736594.0, 3.0], [736595.0, 0.0], [736597.0, 2.0], [736598.0, 0.0], [736600.0, 0.0]], "data07": [[736577.0, 0.0], [736578.0, 0.0], [736580.0, 1.0], [736582.0, 2.0], [736583.0, 19.0], [736584.0, 51.0], [736585.0, 51.0], [736586.0, 49.0], [736587.0, 35.0], [736588.0, 43.0], [736589.0, 14.0], [736590.0, 14.0], [736591.0, 9.0], [736592.0, 8.0], [736594.0, 4.0], [736598.0, 0.0], [736599.0, 0.0], [736600.0, 0.0]], "data04": [[736577.0, 0.0], [736581.0, 0.0], [736582.0, 3.0], [736583.0, 13.0], [736584.0, 20.0], [736585.0, 15.0], [736586.0, 24.0], [736587.0, 76.0], [736588.0, 80.0], [736589.0, 77.0], [736590.0, 50.0], [736591.0, 16.0], [736592.0, 3.0], [736593.0, 0.0], [736594.0, 3.0], [736597.0, 0.0]], "data05": [[736577.0, 0.0], [736578.0, 0.0], [736580.0, 3.0], [736581.0, 0.0], [736582.0, 7.0], [736583.0, 66.0], [736584.0, 112.0], [736585.0, 71.0], [736586.0, 42.0], [736587.0, 42.0], [736588.0, 31.0], [736589.0, 17.0], [736590.0, 20.0], [736591.0, 8.0], [736592.0, 3.0], [736593.0, 3.0], [736594.0, 0.0], [736595.0, 0.0], [736597.0, 0.0], [736601.0, 0.0]], "data02": [[736580.0, 6.0], [736581.0, 6.0], [736582.0, 31.0], [736583.0, 90.0], [736584.0, 132.0], [736585.0, 89.0], [736586.0, 72.0], [736587.0, 44.0], [736588.0, 54.0], [736589.0, 31.0], [736590.0, 14.0], [736591.0, 7.0], [736592.0, 1.0], [736593.0, 1.0], [736594.0, 1.0], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 1.0], [736600.0, 1.0], [736601.0, 0.0]], "data03": [[736580.0, 2.0], [736581.0, 1.0], [736582.0, 9.0], [736583.0, 42.0], [736584.0, 69.0], [736585.0, 47.0], [736586.0, 50.0], [736587.0, 26.0], [736588.0, 23.0], [736589.0, 20.0], [736590.0, 11.0], [736591.0, 4.0], [736592.0, 5.0], [736593.0, 2.0], [736594.0, 1.0], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.0], [736600.0, 1.0]], "data13": [[736577.0, 0.0], [736578.0, 1.0], [736579.0, 3.0], [736580.0, 14.0], [736581.0, 18.0], [736582.0, 38.0], [736583.0, 100.0], [736584.0, 134.0], [736585.0, 71.0], [736586.0, 79.0], [736587.0, 62.0], [736588.0, 55.0], [736589.0, 23.0], [736590.0, 13.0], [736591.0, 10.0], [736592.0, 6.0], [736593.0, 1.0], [736594.0, 2.0], [736595.0, 1.0], [736596.0, 1.0], [736597.0, 1.0], [736598.0, 0.0], [736599.0, 1.0], [736600.0, 5.0], [736601.0, 0.0]], "data01": [[736577.0, 0.0], [736578.0, 1.0], [736579.0, 6.0], [736580.0, 10.0], [736581.0, 7.0], [736582.0, 18.0], [736583.0, 56.0], [736584.0, 58.0], [736585.0, 35.0], [736586.0, 33.0], [736587.0, 15.0], [736588.0, 20.0], [736589.0, 7.0], [736590.0, 9.0], [736591.0, 7.0], [736592.0, 2.0], [736593.0, 5.0], [736594.0, 2.0], [736595.0, 1.0], [736598.0, 0.0]]}, "id": "el9713140166613318992"});
+   }(mpld3);
+}else if(typeof define === "function" && define.amd){
+   // require.js is available: use it to load d3/mpld3
+   require.config({paths: {d3: "https://mpld3.github.io/js/d3.v3.min"}});
+   require(["d3"], function(d3){
+      window.d3 = d3;
+      mpld3_load_lib("https://mpld3.github.io/js/mpld3.v0.3.js", function(){
+         
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+         mpld3.draw_figure("fig_el97131401666133189922847524004", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.49999999999999994, -0.024531024531024515], "rotation": -0.0, "id": "el9713140166594780560"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.0082054228569865, 0.5], "rotation": -90.0, "id": "el9713140166594839056"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (NMF) (utility_counts)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.49999999999999994, 1.0069822650467812], "rotation": -0.0, "id": "el9713140166594882704"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [-10.350000000000001, 217.35], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 7, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el9713140166594839504"}, {"drawstyle": "default", "color": "#AEC7E8", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data02", "id": "el9713140166594496464"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data03", "id": "el9713140166594497296"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data04", "id": "el9713140166594498384"}, {"drawstyle": "default", "color": "#98DF8A", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data05", "id": "el9713140166594605968"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data06", "id": "el9713140166594606992"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data07", "id": "el9713140166594608016"}, {"drawstyle": "default", "color": "#C5B0D5", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data08", "id": "el9713140166594609040"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el9713140166594651088"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data10", "id": "el9713140166594652112"}, {"drawstyle": "default", "color": "#F7B6D2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data11", "id": "el9713140166594653136"}, {"drawstyle": "default", "color": "#7F7F7F", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data12", "id": "el9713140166594654160"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data13", "id": "el9713140166594700304"}, {"drawstyle": "default", "color": "#DBDB8D", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data14", "id": "el9713140166594701328"}, {"drawstyle": "default", "color": "#17BECF", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data15", "id": "el9713140166594702352"}], "markers": [], "id": "el9713140166594777872", "ydomain": [-10.350000000000001, 217.35], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1550.0, "width": 6550.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el9713140166594839504", "el9713140166594839504pts"], ["el9713140166594496464", "el9713140166594496464pts"], ["el9713140166594497296", "el9713140166594497296pts"], ["el9713140166594498384", "el9713140166594498384pts"], ["el9713140166594605968", "el9713140166594605968pts"], ["el9713140166594606992", "el9713140166594606992pts"], ["el9713140166594608016", "el9713140166594608016pts"], ["el9713140166594609040", "el9713140166594609040pts"], ["el9713140166594651088", "el9713140166594651088pts"], ["el9713140166594652112", "el9713140166594652112pts"], ["el9713140166594653136", "el9713140166594653136pts"], ["el9713140166594654160", "el9713140166594654160pts"], ["el9713140166594700304", "el9713140166594700304pts"], ["el9713140166594701328", "el9713140166594701328pts"], ["el9713140166594702352", "el9713140166594702352pts"]], "labels": ["hurricaneirma florida thanks irma million post aftermath workers crews help", "power restored lost day restore lines neighborhood need street restoring", "just got know want affected like tell came make getting", "deadline midnight pinellas hours don make meet going sunday county", "area lines seen trucks truck haven affected downed single trees", "residents county fl florida elderly city need help electricity duke", "days ago 10 ve got fl electricity weeks truck assess", "damage assessing assess crews major time minimal did neighborhood duke", "emergency duke work isn state energy considered line non 9pm", "people home nursing dead affected heat elderly florida died hollywood", "hurricane irma florida hit duke fl energy ly prepared like", "com twitter status stat irma news sta tus st miami", "storm hit tropical cat lost did went winds ready prepared", "fpl miami irma outages news miaminewtimes fru strated 9666311 com", "thank hard working work hurricaneimra crews getting recovery guys safety"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true], "type": "interactive_legend"}], "data": {"data12": [[736577.0, 0.0], [736580.0, 4.0], [736581.0, 4.0], [736582.0, 24.0], [736583.0, 38.0], [736584.0, 39.0], [736585.0, 37.0], [736586.0, 32.0], [736587.0, 21.0], [736588.0, 26.0], [736589.0, 18.0], [736590.0, 13.0], [736591.0, 7.0], [736592.0, 2.0], [736593.0, 3.0], [736594.0, 3.0], [736595.0, 0.0], [736596.0, 0.0], [736598.0, 4.0], [736599.0, 0.0], [736601.0, 2.0]], "data11": [[736576.0, 1.0], [736577.0, 2.0], [736578.0, 0.0], [736579.0, 7.0], [736580.0, 15.0], [736581.0, 8.0], [736582.0, 35.0], [736583.0, 72.0], [736584.0, 85.0], [736585.0, 66.0], [736586.0, 65.0], [736587.0, 72.0], [736588.0, 54.0], [736589.0, 29.0], [736590.0, 18.0], [736591.0, 15.0], [736592.0, 5.0], [736593.0, 5.0], [736594.0, 4.0], [736595.0, 4.0], [736596.0, 2.0], [736597.0, 0.0], [736598.0, 5.0], [736599.0, 3.0], [736600.0, 6.0], [736601.0, 1.0]], "data14": [[736574.0, 0.0], [736578.0, 1.0], [736579.0, 1.0], [736580.0, 12.0], [736581.0, 6.0], [736582.0, 21.0], [736583.0, 44.0], [736584.0, 44.0], [736585.0, 45.0], [736586.0, 32.0], [736587.0, 35.0], [736588.0, 33.0], [736589.0, 22.0], [736590.0, 14.0], [736591.0, 7.0], [736592.0, 15.0], [736593.0, 1.0], [736594.0, 3.0], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 0.0]], "data10": [[736577.0, 0.0], [736580.0, 4.0], [736581.0, 2.0], [736582.0, 17.0], [736583.0, 54.0], [736584.0, 87.0], [736585.0, 119.0], [736586.0, 82.0], [736587.0, 54.0], [736588.0, 54.0], [736589.0, 22.0], [736590.0, 10.0], [736591.0, 10.0], [736592.0, 3.0], [736594.0, 0.0], [736595.0, 0.0], [736597.0, 1.0], [736598.0, 0.0], [736600.0, 0.0], [736601.0, 1.0]], "data15": [[736578.0, 0.0], [736579.0, 0.0], [736580.0, 5.0], [736581.0, 8.0], [736582.0, 31.0], [736583.0, 111.0], [736584.0, 91.0], [736585.0, 62.0], [736586.0, 48.0], [736587.0, 36.0], [736588.0, 35.0], [736589.0, 17.0], [736590.0, 12.0], [736591.0, 6.0], [736592.0, 7.0], [736593.0, 2.0], [736594.0, 4.0], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 2.0], [736599.0, 0.0]], "data08": [[736578.0, 0.0], [736579.0, 0.0], [736580.0, 0.0], [736581.0, 0.0], [736582.0, 13.0], [736583.0, 106.0], [736584.0, 207.0], [736585.0, 65.0], [736586.0, 61.0], [736587.0, 43.0], [736588.0, 41.0], [736589.0, 15.0], [736590.0, 21.0], [736591.0, 5.0], [736592.0, 3.0], [736593.0, 2.0], [736595.0, 0.0], [736597.0, 0.0], [736598.0, 0.0], [736601.0, 0.0]], "data09": [[736576.0, 0.0], [736579.0, 0.0], [736580.0, 2.0], [736581.0, 2.0], [736582.0, 7.0], [736583.0, 20.0], [736584.0, 44.0], [736585.0, 65.0], [736586.0, 69.0], [736587.0, 29.0], [736588.0, 36.0], [736589.0, 7.0], [736590.0, 5.0], [736591.0, 5.0], [736592.0, 6.0], [736593.0, 2.0], [736594.0, 0.0], [736595.0, 0.0], [736596.0, 0.0], [736598.0, 0.0], [736600.0, 0.0]], "data06": [[736578.0, 0.0], [736580.0, 2.0], [736581.0, 0.0], [736582.0, 12.0], [736583.0, 35.0], [736584.0, 60.0], [736585.0, 49.0], [736586.0, 42.0], [736587.0, 29.0], [736588.0, 26.0], [736589.0, 20.0], [736590.0, 17.0], [736591.0, 3.0], [736592.0, 0.0], [736593.0, 1.0], [736594.0, 3.0], [736595.0, 0.0], [736597.0, 2.0], [736598.0, 0.0], [736600.0, 0.0]], "data07": [[736577.0, 0.0], [736578.0, 0.0], [736580.0, 1.0], [736582.0, 2.0], [736583.0, 19.0], [736584.0, 51.0], [736585.0, 51.0], [736586.0, 49.0], [736587.0, 35.0], [736588.0, 43.0], [736589.0, 14.0], [736590.0, 14.0], [736591.0, 9.0], [736592.0, 8.0], [736594.0, 4.0], [736598.0, 0.0], [736599.0, 0.0], [736600.0, 0.0]], "data04": [[736577.0, 0.0], [736581.0, 0.0], [736582.0, 3.0], [736583.0, 13.0], [736584.0, 20.0], [736585.0, 15.0], [736586.0, 24.0], [736587.0, 76.0], [736588.0, 80.0], [736589.0, 77.0], [736590.0, 50.0], [736591.0, 16.0], [736592.0, 3.0], [736593.0, 0.0], [736594.0, 3.0], [736597.0, 0.0]], "data05": [[736577.0, 0.0], [736578.0, 0.0], [736580.0, 3.0], [736581.0, 0.0], [736582.0, 7.0], [736583.0, 66.0], [736584.0, 112.0], [736585.0, 71.0], [736586.0, 42.0], [736587.0, 42.0], [736588.0, 31.0], [736589.0, 17.0], [736590.0, 20.0], [736591.0, 8.0], [736592.0, 3.0], [736593.0, 3.0], [736594.0, 0.0], [736595.0, 0.0], [736597.0, 0.0], [736601.0, 0.0]], "data02": [[736580.0, 6.0], [736581.0, 6.0], [736582.0, 31.0], [736583.0, 90.0], [736584.0, 132.0], [736585.0, 89.0], [736586.0, 72.0], [736587.0, 44.0], [736588.0, 54.0], [736589.0, 31.0], [736590.0, 14.0], [736591.0, 7.0], [736592.0, 1.0], [736593.0, 1.0], [736594.0, 1.0], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 1.0], [736600.0, 1.0], [736601.0, 0.0]], "data03": [[736580.0, 2.0], [736581.0, 1.0], [736582.0, 9.0], [736583.0, 42.0], [736584.0, 69.0], [736585.0, 47.0], [736586.0, 50.0], [736587.0, 26.0], [736588.0, 23.0], [736589.0, 20.0], [736590.0, 11.0], [736591.0, 4.0], [736592.0, 5.0], [736593.0, 2.0], [736594.0, 1.0], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.0], [736600.0, 1.0]], "data13": [[736577.0, 0.0], [736578.0, 1.0], [736579.0, 3.0], [736580.0, 14.0], [736581.0, 18.0], [736582.0, 38.0], [736583.0, 100.0], [736584.0, 134.0], [736585.0, 71.0], [736586.0, 79.0], [736587.0, 62.0], [736588.0, 55.0], [736589.0, 23.0], [736590.0, 13.0], [736591.0, 10.0], [736592.0, 6.0], [736593.0, 1.0], [736594.0, 2.0], [736595.0, 1.0], [736596.0, 1.0], [736597.0, 1.0], [736598.0, 0.0], [736599.0, 1.0], [736600.0, 5.0], [736601.0, 0.0]], "data01": [[736577.0, 0.0], [736578.0, 1.0], [736579.0, 6.0], [736580.0, 10.0], [736581.0, 7.0], [736582.0, 18.0], [736583.0, 56.0], [736584.0, 58.0], [736585.0, 35.0], [736586.0, 33.0], [736587.0, 15.0], [736588.0, 20.0], [736589.0, 7.0], [736590.0, 9.0], [736591.0, 7.0], [736592.0, 2.0], [736593.0, 5.0], [736594.0, 2.0], [736595.0, 1.0], [736598.0, 0.0]]}, "id": "el9713140166613318992"});
+      });
+    });
+}else{
+    // require.js not available: dynamically load d3 & mpld3
+    mpld3_load_lib("https://mpld3.github.io/js/d3.v3.min.js", function(){
+         mpld3_load_lib("https://mpld3.github.io/js/mpld3.v0.3.js", function(){
+                 
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+                 mpld3.draw_figure("fig_el97131401666133189922847524004", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.49999999999999994, -0.024531024531024515], "rotation": -0.0, "id": "el9713140166594780560"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.0082054228569865, 0.5], "rotation": -90.0, "id": "el9713140166594839056"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (NMF) (utility_counts)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.49999999999999994, 1.0069822650467812], "rotation": -0.0, "id": "el9713140166594882704"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [-10.350000000000001, 217.35], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 7, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el9713140166594839504"}, {"drawstyle": "default", "color": "#AEC7E8", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data02", "id": "el9713140166594496464"}, {"drawstyle": "default", "color": "#FF7F0E", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data03", "id": "el9713140166594497296"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data04", "id": "el9713140166594498384"}, {"drawstyle": "default", "color": "#98DF8A", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data05", "id": "el9713140166594605968"}, {"drawstyle": "default", "color": "#D62728", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data06", "id": "el9713140166594606992"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data07", "id": "el9713140166594608016"}, {"drawstyle": "default", "color": "#C5B0D5", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data08", "id": "el9713140166594609040"}, {"drawstyle": "default", "color": "#8C564B", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data09", "id": "el9713140166594651088"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data10", "id": "el9713140166594652112"}, {"drawstyle": "default", "color": "#F7B6D2", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data11", "id": "el9713140166594653136"}, {"drawstyle": "default", "color": "#7F7F7F", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data12", "id": "el9713140166594654160"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data13", "id": "el9713140166594700304"}, {"drawstyle": "default", "color": "#DBDB8D", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data14", "id": "el9713140166594701328"}, {"drawstyle": "default", "color": "#17BECF", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data15", "id": "el9713140166594702352"}], "markers": [], "id": "el9713140166594777872", "ydomain": [-10.350000000000001, 217.35], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1550.0, "width": 6550.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el9713140166594839504", "el9713140166594839504pts"], ["el9713140166594496464", "el9713140166594496464pts"], ["el9713140166594497296", "el9713140166594497296pts"], ["el9713140166594498384", "el9713140166594498384pts"], ["el9713140166594605968", "el9713140166594605968pts"], ["el9713140166594606992", "el9713140166594606992pts"], ["el9713140166594608016", "el9713140166594608016pts"], ["el9713140166594609040", "el9713140166594609040pts"], ["el9713140166594651088", "el9713140166594651088pts"], ["el9713140166594652112", "el9713140166594652112pts"], ["el9713140166594653136", "el9713140166594653136pts"], ["el9713140166594654160", "el9713140166594654160pts"], ["el9713140166594700304", "el9713140166594700304pts"], ["el9713140166594701328", "el9713140166594701328pts"], ["el9713140166594702352", "el9713140166594702352pts"]], "labels": ["hurricaneirma florida thanks irma million post aftermath workers crews help", "power restored lost day restore lines neighborhood need street restoring", "just got know want affected like tell came make getting", "deadline midnight pinellas hours don make meet going sunday county", "area lines seen trucks truck haven affected downed single trees", "residents county fl florida elderly city need help electricity duke", "days ago 10 ve got fl electricity weeks truck assess", "damage assessing assess crews major time minimal did neighborhood duke", "emergency duke work isn state energy considered line non 9pm", "people home nursing dead affected heat elderly florida died hollywood", "hurricane irma florida hit duke fl energy ly prepared like", "com twitter status stat irma news sta tus st miami", "storm hit tropical cat lost did went winds ready prepared", "fpl miami irma outages news miaminewtimes fru strated 9666311 com", "thank hard working work hurricaneimra crews getting recovery guys safety"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true], "type": "interactive_legend"}], "data": {"data12": [[736577.0, 0.0], [736580.0, 4.0], [736581.0, 4.0], [736582.0, 24.0], [736583.0, 38.0], [736584.0, 39.0], [736585.0, 37.0], [736586.0, 32.0], [736587.0, 21.0], [736588.0, 26.0], [736589.0, 18.0], [736590.0, 13.0], [736591.0, 7.0], [736592.0, 2.0], [736593.0, 3.0], [736594.0, 3.0], [736595.0, 0.0], [736596.0, 0.0], [736598.0, 4.0], [736599.0, 0.0], [736601.0, 2.0]], "data11": [[736576.0, 1.0], [736577.0, 2.0], [736578.0, 0.0], [736579.0, 7.0], [736580.0, 15.0], [736581.0, 8.0], [736582.0, 35.0], [736583.0, 72.0], [736584.0, 85.0], [736585.0, 66.0], [736586.0, 65.0], [736587.0, 72.0], [736588.0, 54.0], [736589.0, 29.0], [736590.0, 18.0], [736591.0, 15.0], [736592.0, 5.0], [736593.0, 5.0], [736594.0, 4.0], [736595.0, 4.0], [736596.0, 2.0], [736597.0, 0.0], [736598.0, 5.0], [736599.0, 3.0], [736600.0, 6.0], [736601.0, 1.0]], "data14": [[736574.0, 0.0], [736578.0, 1.0], [736579.0, 1.0], [736580.0, 12.0], [736581.0, 6.0], [736582.0, 21.0], [736583.0, 44.0], [736584.0, 44.0], [736585.0, 45.0], [736586.0, 32.0], [736587.0, 35.0], [736588.0, 33.0], [736589.0, 22.0], [736590.0, 14.0], [736591.0, 7.0], [736592.0, 15.0], [736593.0, 1.0], [736594.0, 3.0], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 0.0]], "data10": [[736577.0, 0.0], [736580.0, 4.0], [736581.0, 2.0], [736582.0, 17.0], [736583.0, 54.0], [736584.0, 87.0], [736585.0, 119.0], [736586.0, 82.0], [736587.0, 54.0], [736588.0, 54.0], [736589.0, 22.0], [736590.0, 10.0], [736591.0, 10.0], [736592.0, 3.0], [736594.0, 0.0], [736595.0, 0.0], [736597.0, 1.0], [736598.0, 0.0], [736600.0, 0.0], [736601.0, 1.0]], "data15": [[736578.0, 0.0], [736579.0, 0.0], [736580.0, 5.0], [736581.0, 8.0], [736582.0, 31.0], [736583.0, 111.0], [736584.0, 91.0], [736585.0, 62.0], [736586.0, 48.0], [736587.0, 36.0], [736588.0, 35.0], [736589.0, 17.0], [736590.0, 12.0], [736591.0, 6.0], [736592.0, 7.0], [736593.0, 2.0], [736594.0, 4.0], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 2.0], [736599.0, 0.0]], "data08": [[736578.0, 0.0], [736579.0, 0.0], [736580.0, 0.0], [736581.0, 0.0], [736582.0, 13.0], [736583.0, 106.0], [736584.0, 207.0], [736585.0, 65.0], [736586.0, 61.0], [736587.0, 43.0], [736588.0, 41.0], [736589.0, 15.0], [736590.0, 21.0], [736591.0, 5.0], [736592.0, 3.0], [736593.0, 2.0], [736595.0, 0.0], [736597.0, 0.0], [736598.0, 0.0], [736601.0, 0.0]], "data09": [[736576.0, 0.0], [736579.0, 0.0], [736580.0, 2.0], [736581.0, 2.0], [736582.0, 7.0], [736583.0, 20.0], [736584.0, 44.0], [736585.0, 65.0], [736586.0, 69.0], [736587.0, 29.0], [736588.0, 36.0], [736589.0, 7.0], [736590.0, 5.0], [736591.0, 5.0], [736592.0, 6.0], [736593.0, 2.0], [736594.0, 0.0], [736595.0, 0.0], [736596.0, 0.0], [736598.0, 0.0], [736600.0, 0.0]], "data06": [[736578.0, 0.0], [736580.0, 2.0], [736581.0, 0.0], [736582.0, 12.0], [736583.0, 35.0], [736584.0, 60.0], [736585.0, 49.0], [736586.0, 42.0], [736587.0, 29.0], [736588.0, 26.0], [736589.0, 20.0], [736590.0, 17.0], [736591.0, 3.0], [736592.0, 0.0], [736593.0, 1.0], [736594.0, 3.0], [736595.0, 0.0], [736597.0, 2.0], [736598.0, 0.0], [736600.0, 0.0]], "data07": [[736577.0, 0.0], [736578.0, 0.0], [736580.0, 1.0], [736582.0, 2.0], [736583.0, 19.0], [736584.0, 51.0], [736585.0, 51.0], [736586.0, 49.0], [736587.0, 35.0], [736588.0, 43.0], [736589.0, 14.0], [736590.0, 14.0], [736591.0, 9.0], [736592.0, 8.0], [736594.0, 4.0], [736598.0, 0.0], [736599.0, 0.0], [736600.0, 0.0]], "data04": [[736577.0, 0.0], [736581.0, 0.0], [736582.0, 3.0], [736583.0, 13.0], [736584.0, 20.0], [736585.0, 15.0], [736586.0, 24.0], [736587.0, 76.0], [736588.0, 80.0], [736589.0, 77.0], [736590.0, 50.0], [736591.0, 16.0], [736592.0, 3.0], [736593.0, 0.0], [736594.0, 3.0], [736597.0, 0.0]], "data05": [[736577.0, 0.0], [736578.0, 0.0], [736580.0, 3.0], [736581.0, 0.0], [736582.0, 7.0], [736583.0, 66.0], [736584.0, 112.0], [736585.0, 71.0], [736586.0, 42.0], [736587.0, 42.0], [736588.0, 31.0], [736589.0, 17.0], [736590.0, 20.0], [736591.0, 8.0], [736592.0, 3.0], [736593.0, 3.0], [736594.0, 0.0], [736595.0, 0.0], [736597.0, 0.0], [736601.0, 0.0]], "data02": [[736580.0, 6.0], [736581.0, 6.0], [736582.0, 31.0], [736583.0, 90.0], [736584.0, 132.0], [736585.0, 89.0], [736586.0, 72.0], [736587.0, 44.0], [736588.0, 54.0], [736589.0, 31.0], [736590.0, 14.0], [736591.0, 7.0], [736592.0, 1.0], [736593.0, 1.0], [736594.0, 1.0], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.0], [736598.0, 1.0], [736600.0, 1.0], [736601.0, 0.0]], "data03": [[736580.0, 2.0], [736581.0, 1.0], [736582.0, 9.0], [736583.0, 42.0], [736584.0, 69.0], [736585.0, 47.0], [736586.0, 50.0], [736587.0, 26.0], [736588.0, 23.0], [736589.0, 20.0], [736590.0, 11.0], [736591.0, 4.0], [736592.0, 5.0], [736593.0, 2.0], [736594.0, 1.0], [736595.0, 0.0], [736596.0, 0.0], [736597.0, 0.0], [736600.0, 1.0]], "data13": [[736577.0, 0.0], [736578.0, 1.0], [736579.0, 3.0], [736580.0, 14.0], [736581.0, 18.0], [736582.0, 38.0], [736583.0, 100.0], [736584.0, 134.0], [736585.0, 71.0], [736586.0, 79.0], [736587.0, 62.0], [736588.0, 55.0], [736589.0, 23.0], [736590.0, 13.0], [736591.0, 10.0], [736592.0, 6.0], [736593.0, 1.0], [736594.0, 2.0], [736595.0, 1.0], [736596.0, 1.0], [736597.0, 1.0], [736598.0, 0.0], [736599.0, 1.0], [736600.0, 5.0], [736601.0, 0.0]], "data01": [[736577.0, 0.0], [736578.0, 1.0], [736579.0, 6.0], [736580.0, 10.0], [736581.0, 7.0], [736582.0, 18.0], [736583.0, 56.0], [736584.0, 58.0], [736585.0, 35.0], [736586.0, 33.0], [736587.0, 15.0], [736588.0, 20.0], [736589.0, 7.0], [736590.0, 9.0], [736591.0, 7.0], [736592.0, 2.0], [736593.0, 5.0], [736594.0, 2.0], [736595.0, 1.0], [736598.0, 0.0]]}, "id": "el9713140166613318992"});
+            })
+         });
+}
+</script>

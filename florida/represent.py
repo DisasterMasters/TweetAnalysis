@@ -9,7 +9,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 
 docs = []
-with open("training_data/n_dates.txt") as file:
+with open("training_data/dates.txt") as file:
         for line in file:
                 docs = line.split("\t")
 
@@ -58,8 +58,6 @@ def getTweets(indices, weights, title):
                 subtweet_list = compileTweets(tweet_index, title, i)
                 topic = computeSimilarity(subtweet_list, title)
                 tweet_dict[topic] = [subtweet_list]
-	for k, v in tweet_dict.iteritems():
-		print k, v
         return tweet_dict
 
 def computeSimilarity(subtweet_list, title):
@@ -98,13 +96,13 @@ def compileTweets(tweet_index, title, i):
 
         return tweet_list
 
-left_categories = open("results/n_topics.txt", "r") #the categories for a tweet
-left_weights = open("results/W_indices_n.txt", "r") #their weights
-left_selections = open("results/n_topics.txt", "r") #categories selected
+left_categories = open("results/topics.txt", "r") #the categories for a tweet
+left_weights = open("results/W_indices_u.txt", "r") #their weights
+left_selections = open("results/topics.txt", "r") #categories selected
 
 left_indices, left_title = getIndices(left_categories, left_selections)
 
-left = open("results/representation_n.csv", "w")
+left = open("results/unsupervised_utility_tweets.csv", "w")
 left_tweets = getTweets(left_indices, left_weights, left_title)
 
 left = csv.writer(left)

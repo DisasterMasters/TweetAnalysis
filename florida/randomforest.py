@@ -33,7 +33,7 @@ for dirs, subdirs, files in os.walk("training_data/supervised_data"):  #all data
 					label = re.match(r'^(.*?)\..*', label).group(1)
 				label = int(label)
 				tweet = row[0]
-				if label != 17: #ignore label 17 ('not sure')
+				if label != 17 and label != 2 and label != 3: #ignore label 17 ('not sure')
 					#put into dictionary so we can count the tweets per label
 					if label not in tweetlabel_dict:
 						tweetlabel_dict[label] = [tweet]

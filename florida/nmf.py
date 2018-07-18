@@ -6,7 +6,7 @@ import os
 import sys
 
 def display_topics(model, feature_names, no_top_words):
-    nmf = open("results/n_topics.txt", "w")
+    nmf = open("results/topics.txt", "w")
     for topic_idx, topic in enumerate(model.components_):
         nmf.write("Topic %d:" % (topic_idx))
         nmf.write("\n")
@@ -16,7 +16,7 @@ def display_topics(model, feature_names, no_top_words):
 
 documents = []
 
-with open("training_data/n_dates.txt") as file:
+with open("training_data/dates.txt") as file:
     for line in file:
         docs = line.split("\t")
         for d in docs:
@@ -33,7 +33,7 @@ tfidf = tfidf_vectorizer.fit_transform(documents)
 tfidf_feature_names = tfidf_vectorizer.get_feature_names()
 
 
-no_topics = 5
+no_topics = 15
 
 # Run NMF
 nmf = NMF(n_components=no_topics, random_state=1, alpha=.1, l1_ratio=.5, init='nndsvda').fit(tfidf)
@@ -51,7 +51,7 @@ W = nmf.fit_transform(tfidf) #column
 #number of W corresponds to topic in document
 #numpy.argsort()
 
-file_w = open("results/W_indices_n.txt", "w")
+file_w = open("results/W_indices_u.txt", "w")
 
 for w in W:
         file_w.write(str(w))

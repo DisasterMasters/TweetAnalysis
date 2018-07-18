@@ -7,13 +7,14 @@ from datetime import datetime
 import sys
 import re
 
-typeoffile = "nonprofit"
-outfile = "training_data/n_dates.txt"
+#typeoffile = "nonprofit"
+#outfile = "training_data/n_dates.txt"
 
-'''outfile = 'training_data/dates.txt'
+typeoffile = sys.argv[1]
+outfile = 'training_data/dates.txt'
 if typeoffile == 'media':
 	outfile = 'training_data/m_dates.txt'
-'''
+
 
 file = io.open(outfile, "w", encoding="utf-8", errors="ignore")
 #csv_f= open("results/media_lexfiltered.csv", "w")
@@ -30,8 +31,8 @@ for dirs, subdirs, files in os.walk(typeoffile):
 			f = open(dirs + "/" + fname, "r")
 			name = str(fname)
 			csv_f = csv.reader(f)
-			#if name != 'FloridaMediaTweets.csv' and typeoffile == 'media':
-			csv_f = csv.reader(f, delimiter='|')
+			if name != 'FloridaMediaTweets.csv' and typeoffile == 'media':
+				csv_f = csv.reader(f, delimiter='|')
 			header = next(csv_f, None) #skip header, save for output
 			#if flag == 0:
 				#output.writerow(header)
@@ -51,12 +52,11 @@ for dirs, subdirs, files in os.walk(typeoffile):
 						tmp = row[4].split(' ')
 						if start < date < end and len(tmp) > 3: 
 							clean_text = row[4]
-							print clean_text
 							#remove url and @handles
 							clean_text = re.sub(r'https?([^\s]+)', '', clean_text)
 							clean_text = re.sub(r'pic.twitter.com([^\s]+)', '', clean_text)
 							clean_text = re.sub(r'@([^\s]+)', '', clean_text)
-							text = clean_text + '~+&$!sep779++' + date_text + '~+&$!sep779++' + row[7] #need to make condition here
+							text = clean_text + '~+&$!sep779++' + date_text + '~+&$!sep779++' + row[9] #need to make condition here
 							text = text + "\t"
 							text = text.decode('utf-8', errors='ignore')
 							file.write(text)
