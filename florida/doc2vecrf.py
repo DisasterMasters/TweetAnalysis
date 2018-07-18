@@ -80,7 +80,7 @@ training_data = LabeledLineSentence(tweets, labels_list)
 	
 	
 #build the doc2vec model
-model = Doc2Vec(vector_size=50, min_count=1, dm=1)
+model = Doc2Vec(vector_size=50, min_count=3, dm=1)
 model.build_vocab(training_data)
 model.train(training_data, total_examples=model.corpus_count, epochs=200)
 
