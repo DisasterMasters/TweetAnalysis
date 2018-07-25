@@ -20,20 +20,32 @@ labels_list = []
 
 tweetlabel_dict = {}
 
+typeoffile = sys.argv[1] #media or utility
+
+included = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] 
+
+file_name = ''
+if typeoffile == 'utility':
+	file_name = "dates"
+elif typeoffile == 'media':
+	file_name = 'm_dates'
+
+
+
 #reading in training data
-for dirs, subdirs, files in os.walk("training_data/supervised_data"):  #all data for supervised learning should be put in this directory
+for dirs, subdirs, files in os.walk("training_data/supervised_data/" + typeoffile):  #all data for supervised learning should be put in this directory
 	for fname in files:
 		file = open(dirs + "/" + fname, "r")
 		csv_read = csv.reader(file)
 		header = csv_read.next()
 		for row in csv_read:
-			if row[1] != '': #try to keep tweet as first entry and label as second
+			if row[1] != '' and len(row[1].split(' ')) == 1: #try to keep tweet as first entry and label as second
 				label = row[1]
 				if '.' in label: #get rid of decimal labeling if there is any
 					label = re.match(r'^(.*?)\..*', label).group(1)
 				label = int(label)
 				tweet = row[0]
-				if label != 17 and label != 2 and label != 3: #ignore label 17 ('not sure')
+				if label in included:
 					#put into dictionary so we can count the tweets per label
 					if label not in tweetlabel_dict:
 						tweetlabel_dict[label] = [tweet]
@@ -45,7 +57,7 @@ labels_list = []
 
 #balancing out the training data (~500 in each category)
 for k, v in tweetlabel_dict.iteritems():
-	
+
 	if len(v) > 500:
 		sample = random.sample(v, 500)
 		for s in sample:
@@ -62,10 +74,6 @@ for k, v in tweetlabel_dict.iteritems():
 date_dict = {}
 test_data = []
 
-typeoffile = sys.argv[1] #media or utility
-file_name = 'dates'
-if typeoffile == 'media':
-	file_name = 'm_dates'
 
 #open test data obtained from media/utility file, parse
 file = open("training_data/" + file_name + ".txt", "r")

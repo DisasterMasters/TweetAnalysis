@@ -37,14 +37,24 @@ labels_list = []
 
 tweetlabel_dict = {}
 
+
+typeoffile = sys.argv[1]
+
+file_name = ''
+if typeoffile == 'utility':
+        file_name = "dates"
+elif typeoffile == 'media':
+        file_name = 'm_dates'
+
+
 #reading in training data
-for dirs, subdirs, files in os.walk("training_data/supervised_data"):  #all data for supervised learning should be put in this directory
+for dirs, subdirs, files in os.walk("training_data/supervised_data/" + typeoffile):  #all data for supervised learning should be put in this directory
 	for fname in files:
 		file = open(dirs + "/" + fname, "r")
 		csv_read = csv.reader(file)
 		header = csv_read.next()
 		for row in csv_read:
-			if row[1] != '': #try to keep tweet as first entry and label as second
+			if row[1] != '' and len(row[1].split(' ')) == 1: #try to keep tweet as first entry and label as second
 				label = row[1]
 				if '.' in label: #get rid of decimal labeling if there is any
 					label = re.match(r'^(.*?)\..*', label).group(1)
@@ -102,11 +112,6 @@ clf = RandomForestClassifier().fit(train_tweets, train_labels)
 #get the test data from the dataset of tweets
 test_data = []
 
-typeoffile = sys.argv[1] #media or utility
-file_name = 'dates'
-if typeoffile == 'media':
-	file_name = 'm_dates'
-
 #open test data obtained from media/utility file, parse
 file = open("training_data/" + file_name + ".txt")
 w = file.read()
@@ -142,7 +147,7 @@ for t in test_data:
         vect = model.infer_vector(split)
 	vect = vect.reshape(1, -1)
 	prediction = clf.predict(vect)
-	print prediction
+	#print prediction
 	#writing tweet, prediction, date, and permalink
 	writer.writerow([t[0], int(prediction), t[1].strftime('%m/%d/%Y'), t[2]])
 	

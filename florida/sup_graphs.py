@@ -17,12 +17,18 @@ count = 0.0
 
 name = sys.argv[1]
 
-f = open("results/" + name + "_supervised_rf.csv", "r")
+f = open("results/" + name + "_supervised_rf_doc2vec.csv", "r")
+
+included = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+
+if sys.argv[1] == 'utility':
+	 included = [1, 4, 8, 9, 10, 11, 12, 14, 15]
+
 
 csv_f = csv.reader(f)
 next(csv_f, None) #skip header
 for row in csv_f:
-	if row[1] != '0':
+	if int(row[1]) in included:
 		date = row[2]
 		date = datetime.datetime.strptime(date, "%m/%d/%Y")
 		if row[1] not in date_dict:
@@ -77,6 +83,6 @@ mpld3.plugins.connect(fig, interactive_legend)
 fig.set_size_inches(26.5, 12.5)
 fig.savefig("results/" + name + "_rf_graph.png")
 html_string = mpld3.fig_to_html(fig)
-mpld3.show()
-figure = open('results/' + name + '.html', 'w')
+#mpld3.show()
+figure = open('results/' + name + '_doc2vec.html', 'w')
 figure.write(html_string)
