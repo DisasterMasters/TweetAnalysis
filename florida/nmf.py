@@ -33,7 +33,7 @@ tfidf = tfidf_vectorizer.fit_transform(documents)
 tfidf_feature_names = tfidf_vectorizer.get_feature_names()
 
 
-no_topics = 8
+no_topics = 5
 
 # Run NMF
 nmf = NMF(n_components=no_topics, random_state=1, alpha=.1, l1_ratio=.5, init='nndsvda').fit(tfidf)

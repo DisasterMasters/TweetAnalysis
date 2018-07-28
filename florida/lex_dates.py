@@ -52,10 +52,11 @@ for dirs, subdirs, files in os.walk(typeoffile):
 						tmp = row[4].split(' ')
 						if start < date < end and len(tmp) > 3: 
 							clean_text = row[4]
-							#remove url and @handles
+							#remove url, via @_, and @handles
 							clean_text = re.sub(r'https?([^\s]+)', '', clean_text)
 							clean_text = re.sub(r'pic.twitter.com([^\s]+)', '', clean_text)
 							clean_text = re.sub(r'@([^\s]+)', '', clean_text)
+							clean_text = re.sub(r'via @([^\s]+)', '', clean_text)
 							text = clean_text + '~+&$!sep779++' + date_text + '~+&$!sep779++' + row[9] #need to make condition here
 							text = text + "\t"
 							text = text.decode('utf-8', errors='ignore')

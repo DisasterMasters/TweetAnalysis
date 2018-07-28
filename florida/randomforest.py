@@ -22,11 +22,12 @@ tweetlabel_dict = {}
 
 typeoffile = sys.argv[1] #media or utility
 
-included = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] 
+included = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] 
 
 file_name = ''
 if typeoffile == 'utility':
 	file_name = "dates"
+	included = [1, 4, 8, 9, 10, 11, 12, 14, 15] 
 elif typeoffile == 'media':
 	file_name = 'm_dates'
 
@@ -118,7 +119,8 @@ writer.writerow(['Tweet', 'Category', 'Date', 'Permalink'])
 for t in test_data:
 	vect = count_vect.transform([t[0]])
 	prediction = clf.predict(vect)
-	#writing tweet, prediction, date, and permalink
-	writer.writerow([t[0], int(prediction), t[1].strftime('%m/%d/%Y'), t[2]])
+	if prediction in included:
+		#writing tweet, prediction, date, and permalink
+		writer.writerow([t[0], int(prediction), t[1].strftime('%m/%d/%Y'), t[2]])
 	
 
