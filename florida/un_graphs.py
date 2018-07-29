@@ -1,3 +1,5 @@
+#pretty much the same as sup_graphs.py, but with slight differences
+
 import csv 
 import os
 import io
@@ -17,8 +19,7 @@ count = 0.0
 
 name = sys.argv[1]
 
-f = open("results/unsupervised_"+ name + "_tweets.csv", "r")
-
+f = open("results/unsupervised_"+ name + "_tweets.csv", "r") #media, utility, gov, or nonprofit
 
 
 label_titles = []

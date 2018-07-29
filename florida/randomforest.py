@@ -20,16 +20,22 @@ labels_list = []
 
 tweetlabel_dict = {}
 
-typeoffile = sys.argv[1] #media or utility
+#pick file: media, utility, gov, or nonprofit
+typeoffile = sys.argv[1] 
 
 included = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] 
 
 file_name = ''
+
 if typeoffile == 'utility':
-	file_name = "dates"
+        file_name = 'training_data/utility_data.txt'
 	included = [1, 4, 8, 9, 10, 11, 12, 14, 15] 
-elif typeoffile == 'media':
-	file_name = 'm_dates'
+if typeoffile == 'media':
+        file_name = 'training_data/media_data.txt'
+if typeoffile == 'nonprofit'
+        file_name = 'training_data/nonprofit_data.txt'
+if typeoffile == 'gov'
+        file_name = 'training_data/gov_data.txt'
 
 
 
@@ -84,19 +90,8 @@ for t in test:
 	if t != '\n':
 		t = t.split('~+&$!sep779++')
 		if t != ['']:
-			if t[1]:
-				t[1] = t[1].strip()
-				date = ''
-				if '/' in t[1]:
-					date = datetime.strptime(t[1], '%m/%d/%Y')
-				elif '-' in t[1]:
-					date = datetime.strptime(t[1], '%Y-%m-%d')
-				#make sure only data from september is included
-				start = datetime(year=2017, month=9, day=1)
-				end = datetime(year=2017, month=9, day=30)
-				if start < date < end:
-					test_data.append([t[0], date, t[2]])
-
+			test_data.append([t[0], t[1], t[2]])
+	
 #fit tf-idf with the training data
 tfidf = TfidfVectorizer(sublinear_tf=True, min_df=5, norm='l2', encoding='latin-1', ngram_range=(1, 2), stop_words='english')
 features = tfidf.fit_transform(tweets).toarray()
