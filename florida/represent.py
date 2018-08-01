@@ -27,19 +27,21 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+typeoffile = sys.argv[1] 
+
 #choose between utility, media, nonprofit, and government
 if typeoffile == 'utility':
         outfile = 'training_data/utility_data.txt'
 if typeoffile == 'media':
         outfile = 'training_data/media_data.txt'
-if typeoffile == 'nonprofit'
+if typeoffile == 'nonprofit':
         outfile = 'training_data/nonprofit_data.txt'
-if typeoffile == 'gov'
+if typeoffile == 'gov':
         outfile = 'training_data/gov_data.txt'
 
 #open file, tab separate
 docs = []
-with open(typeoffile) as file:
+with open(outfile) as file:
         for line in file:
                 docs = line.split("\t")
 
@@ -144,9 +146,9 @@ def compileTweets(tweet_index, title, i):
         return tweet_list
 
 
-categories = open("results/" typeoffile + "topics.txt", "r") #the categories for a tweet
-weights = open("results/W_indices" + typeoffile + ".txt", "r") #their weights
-selections = open("results/" typeoffile + "topics.txt", "r") #categories selected (usually all categories are selected, so we keep this and categories the same)
+categories = open("results/" + typeoffile + "_topics.txt", "r") #the categories for a tweet
+weights = open("results/W_indices_" + typeoffile + ".txt", "r") #their weights
+selections = open("results/" + typeoffile + "_topics.txt", "r") #categories selected (usually all categories are selected, so we keep this and categories the same)
 
 #compute highest indices
 indices, title = getIndices(categories, selections)

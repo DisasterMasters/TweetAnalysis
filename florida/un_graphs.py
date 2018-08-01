@@ -79,7 +79,7 @@ elif sys.argv[2] == 'n':
 ax.set_title("Topics Distribution During Hurricane Irma (NMF) (" + name + ")")
 mpld3.plugins.connect(fig, interactive_legend)
 fig.set_size_inches(65.5, 15.5)
-fig.savefig("results/" + name + "_nmf_graph.png")
+#fig.savefig("results/" + name + "_nmf_graph.png")
 html_string = mpld3.fig_to_html(fig)
 #mpld3.show()
 figure = open('results/' + name + '_nmf.html', 'w')

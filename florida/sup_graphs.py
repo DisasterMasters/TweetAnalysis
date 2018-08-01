@@ -17,25 +17,29 @@ count = 0.0
 
 name = sys.argv[1] #media, utility, gov, or nonprofit
 
-f = open("results/" + name + "_supervised_rf.csv", "r")
+doc2vec = ''
+if len(sys.argv) > 3:
+	doc2vec = '_doc2vec'
+
+
+f = open("results/" + name + "_supervised_rf" + doc2vec + ".csv", "r")
 
 #open output file
 csv_f = csv.reader(f)
 next(csv_f, None) #skip header
 for row in csv_f:
-	if int(row[1]) in included:
-		#get dates
-		date = row[2]
-		date = datetime.datetime.strptime(date, "%m/%d/%Y")
-		if row[1] not in date_dict:
-			date_dict[row[1]] = [date]
-		else:
-			date_dict[row[1]].append(date)
-		#count dates up
-		if date not in count_dict:
-			count_dict[date] = 1.0
-		else:
-			count_dict[date] += 1.0
+	#get dates
+	date = row[2]
+	date = datetime.datetime.strptime(date, "%m/%d/%Y")
+	if row[1] not in date_dict:
+		date_dict[row[1]] = [date]
+	else:
+		date_dict[row[1]].append(date)
+	#count dates up
+	if date not in count_dict:
+		count_dict[date] = 1.0
+	else:
+		count_dict[date] += 1.0
 
 #select color scheme for graph
 fig, ax = plt.subplots()
@@ -68,7 +72,6 @@ for k, v in date_dict.iteritems():
 	#order titles to correspond with graph
 	ordered_titles.append(label_titles[int(k)])
 
-#might need to fix graph numbering, check soon
 
 #make interactive legend
 interactive_legend = plugins.InteractiveLegendPlugin(line_collections, ordered_titles)
@@ -84,9 +87,8 @@ ax.set_title("Topics Distribution During Hurricane Irma (Random Forest) (" + nam
 #connect matplotlib to d3 so it can be hosted in browser
 mpld3.plugins.connect(fig, interactive_legend)
 fig.set_size_inches(26.5, 12.5)
-fig.savefig("results/" + name + "_rf_graph.png")
 html_string = mpld3.fig_to_html(fig)
 #mpld3.show() #uncomment this to show graph locally
-figure = open('results/' + name + '_doc2vec.html', 'w')
+figure = open('results/' + name + '_rf' + doc2vec + '.html', 'w')
 #write html string to save graph
 figure.write(html_string)

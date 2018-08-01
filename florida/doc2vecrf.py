@@ -46,10 +46,14 @@ included = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 
 file_name = ''
 if typeoffile == 'utility':
-        file_name = "dates"
-	included = [1, 4, 8, 9, 10, 11, 12, 14, 15]
-elif typeoffile == 'media':
-        file_name = 'm_dates'
+        file_name = 'training_data/utility_data.txt'
+        included = [1, 4, 8, 9, 10, 11, 12, 14, 15]
+if typeoffile == 'media':
+        file_name = 'training_data/media_data.txt'
+if typeoffile == 'nonprofit':
+        file_name = 'training_data/nonprofit_data.txt'
+if typeoffile == 'gov':
+        file_name = 'training_data/gov_data.txt'
 
 
 #reading in training data
@@ -118,27 +122,16 @@ clf = RandomForestClassifier().fit(train_tweets, train_labels)
 test_data = []
 
 #open test data obtained from media/utility file, parse
-file = open("training_data/" + file_name + ".txt")
+file = open(file_name)
 w = file.read()
 test = w.split("\t")
 for t in test:
 	if t != '\n':
 		t = t.split('~+&$!sep779++')
 		if t != ['']:
-			if t[1]:
-				t[1] = t[1].strip()
-				date = ''
-				if '/' in t[1]:
-					date = datetime.strptime(t[1], '%m/%d/%Y')
-				elif '-' in t[1]:
-					date = datetime.strptime(t[1], '%Y-%m-%d')
-				#make sure only data from september is included
-				start = datetime(year=2017, month=9, day=1)
-				end = datetime(year=2017, month=9, day=30)
-				if start < date < end:
-					test_data.append([t[0], date, t[2]])
+			test_data.append([t[0], t[1], t[2]])
 
-
+		
 #open predictions file for writing
 outfile = open("results/" + typeoffile + "_supervised_rf_doc2vec.csv", "w")
 writer = csv.writer(outfile)
@@ -153,8 +146,14 @@ for t in test_data:
 	vect = vect.reshape(1, -1)
 	prediction = clf.predict(vect)
 	#print prediction
-	if prediction in included:
+	if int(prediction) in included:
+		date = ''
+                #clean up mixed date formats -__-
+                if '/' in t[1]:
+                        date = datetime.strptime(t[1], '%m/%d/%Y')
+                elif '-' in t[1]:
+                        date = datetime.strptime(t[1], '%Y-%m-%d')
 		#writing tweet, prediction, date, and permalink
-		writer.writerow([t[0], int(prediction), t[1].strftime('%m/%d/%Y'), t[2]])
+		writer.writerow([t[0], int(prediction), date.strftime('%m/%d/%Y'), t[2]])
 	
 

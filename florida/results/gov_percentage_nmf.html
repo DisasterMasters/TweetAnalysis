@@ -1,0 +1,485 @@
+
+
+<style>
+
+    .legend-box {
+      cursor: pointer;
+    }
+    
+</style>
+
+<div id="fig_el89831398609640359208446288812"></div>
+<script>
+function mpld3_load_lib(url, callback){
+  var s = document.createElement('script');
+  s.src = url;
+  s.async = true;
+  s.onreadystatechange = s.onload = callback;
+  s.onerror = function(){console.warn("failed to load library " + url);};
+  document.getElementsByTagName("head")[0].appendChild(s);
+}
+
+if(typeof(mpld3) !== "undefined" && mpld3._mpld3IsLoaded){
+   // already loaded: just create the figure
+   !function(mpld3){
+       
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+       mpld3.draw_figure("fig_el89831398609640359208446288812", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.49999999999999994, -0.024531024531024515], "rotation": -0.0, "id": "el8983139860947656080"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.007343566171441079, 0.5], "rotation": -90.0, "id": "el8983139860945027600"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (NMF) (gov_percentage)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.49999999999999994, 1.0069822650467812], "rotation": -0.0, "id": "el8983139860945075344"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [0.01967213114754098, 0.48852459016393446], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 6, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945028048"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 2, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945213392"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 3, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945214224"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 4, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945215312"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 5, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945040272"}], "markers": [], "id": "el8983139860947653392", "ydomain": [0.01967213114754098, 0.48852459016393446], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1550.0, "width": 6550.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el8983139860945028048", "el8983139860945028048pts"], ["el8983139860945213392", "el8983139860945213392pts"], ["el8983139860945214224", "el8983139860945214224pts"], ["el8983139860945215312", "el8983139860945215312pts"], ["el8983139860945040272", "el8983139860945040272pts"]], "labels": ["residents water safe flood power food damage area safety stay", "hurricaneirma recovery help disaster efforts relief affected assistance rescue visit", "emergency management local information safety state evacuation info contact hurricaneirma", "hurricane irma maria gov category flwx update winds florida harvey", "storm surge winds tropical debris force coming hurricaneirma possible life"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true], "type": "interactive_legend"}], "data": {"data01": [[736574.0, 0.21686746987951808, 0.18072289156626506, 0.10843373493975904, 0.21686746987951808, 0.21686746987951808], [736575.0, 0.2, 0.29333333333333333, 0.08, 0.22666666666666666, 0.13333333333333333], [736576.0, 0.05952380952380952, 0.21428571428571427, 0.11904761904761904, 0.44047619047619047, 0.10714285714285714], [736577.0, 0.14594594594594595, 0.15135135135135136, 0.15675675675675677, 0.3081081081081081, 0.21081081081081082], [736578.0, 0.24267782426778242, 0.13807531380753138, 0.19665271966527198, 0.22594142259414227, 0.17573221757322174], [736579.0, 0.13924050632911392, 0.18565400843881857, 0.16877637130801687, 0.26582278481012656, 0.21940928270042195], [736580.0, 0.15413533834586465, 0.14661654135338345, 0.21428571428571427, 0.23684210526315788, 0.22932330827067668], [736581.0, 0.12413793103448276, 0.15172413793103448, 0.1793103448275862, 0.3, 0.22758620689655173], [736582.0, 0.18926553672316385, 0.20056497175141244, 0.1440677966101695, 0.192090395480226, 0.2598870056497175], [736583.0, 0.32727272727272727, 0.2409090909090909, 0.12272727272727273, 0.125, 0.17272727272727273], [736584.0, 0.2785388127853881, 0.3470319634703196, 0.1324200913242009, 0.1506849315068493, 0.0684931506849315], [736585.0, 0.2893401015228426, 0.37055837563451777, 0.09137055837563451, 0.14720812182741116, 0.07614213197969544], [736586.0, 0.21341463414634146, 0.3780487804878049, 0.08536585365853659, 0.18292682926829268, 0.10975609756097561], [736587.0, 0.2080536912751678, 0.3422818791946309, 0.1342281879194631, 0.22818791946308725, 0.053691275167785234], [736588.0, 0.2558139534883721, 0.29069767441860467, 0.05813953488372093, 0.18604651162790697, 0.1511627906976744], [736589.0, 0.19736842105263158, 0.3157894736842105, 0.07894736842105263, 0.19736842105263158, 0.14473684210526316], [736590.0, 0.17094017094017094, 0.3247863247863248, 0.09401709401709402, 0.2564102564102564, 0.1111111111111111], [736591.0, 0.144, 0.312, 0.072, 0.304, 0.128], [736592.0, 0.07575757575757576, 0.2878787878787879, 0.1893939393939394, 0.3106060606060606, 0.09848484848484848], [736593.0, 0.08196721311475409, 0.4672131147540984, 0.040983606557377046, 0.27049180327868855, 0.09836065573770492], [736594.0, 0.1259259259259259, 0.3037037037037037, 0.1111111111111111, 0.31851851851851853, 0.1037037037037037], [736595.0, 0.16279069767441862, 0.43023255813953487, 0.11627906976744186, 0.16279069767441862, 0.06976744186046512], [736596.0, 0.16981132075471697, 0.2830188679245283, 0.07547169811320754, 0.18867924528301888, 0.18867924528301888], [736597.0, 0.17307692307692307, 0.41346153846153844, 0.04807692307692308, 0.2403846153846154, 0.07692307692307693], [736598.0, 0.11428571428571428, 0.3523809523809524, 0.10476190476190476, 0.2571428571428571, 0.12380952380952381], [736599.0, 0.09523809523809523, 0.35714285714285715, 0.16666666666666666, 0.2261904761904762, 0.09523809523809523], [736600.0, 0.1588785046728972, 0.3644859813084112, 0.07476635514018691, 0.205607476635514, 0.14953271028037382], [736601.0, 0.21153846153846154, 0.28846153846153844, 0.10576923076923077, 0.2403846153846154, 0.10576923076923077]]}, "id": "el8983139860964035920"});
+   }(mpld3);
+}else if(typeof define === "function" && define.amd){
+   // require.js is available: use it to load d3/mpld3
+   require.config({paths: {d3: "https://mpld3.github.io/js/d3.v3.min"}});
+   require(["d3"], function(d3){
+      window.d3 = d3;
+      mpld3_load_lib("https://mpld3.github.io/js/mpld3.v0.3.js", function(){
+         
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+         mpld3.draw_figure("fig_el89831398609640359208446288812", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.49999999999999994, -0.024531024531024515], "rotation": -0.0, "id": "el8983139860947656080"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.007343566171441079, 0.5], "rotation": -90.0, "id": "el8983139860945027600"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (NMF) (gov_percentage)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.49999999999999994, 1.0069822650467812], "rotation": -0.0, "id": "el8983139860945075344"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [0.01967213114754098, 0.48852459016393446], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 6, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945028048"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 2, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945213392"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 3, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945214224"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 4, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945215312"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 5, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945040272"}], "markers": [], "id": "el8983139860947653392", "ydomain": [0.01967213114754098, 0.48852459016393446], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1550.0, "width": 6550.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el8983139860945028048", "el8983139860945028048pts"], ["el8983139860945213392", "el8983139860945213392pts"], ["el8983139860945214224", "el8983139860945214224pts"], ["el8983139860945215312", "el8983139860945215312pts"], ["el8983139860945040272", "el8983139860945040272pts"]], "labels": ["residents water safe flood power food damage area safety stay", "hurricaneirma recovery help disaster efforts relief affected assistance rescue visit", "emergency management local information safety state evacuation info contact hurricaneirma", "hurricane irma maria gov category flwx update winds florida harvey", "storm surge winds tropical debris force coming hurricaneirma possible life"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true], "type": "interactive_legend"}], "data": {"data01": [[736574.0, 0.21686746987951808, 0.18072289156626506, 0.10843373493975904, 0.21686746987951808, 0.21686746987951808], [736575.0, 0.2, 0.29333333333333333, 0.08, 0.22666666666666666, 0.13333333333333333], [736576.0, 0.05952380952380952, 0.21428571428571427, 0.11904761904761904, 0.44047619047619047, 0.10714285714285714], [736577.0, 0.14594594594594595, 0.15135135135135136, 0.15675675675675677, 0.3081081081081081, 0.21081081081081082], [736578.0, 0.24267782426778242, 0.13807531380753138, 0.19665271966527198, 0.22594142259414227, 0.17573221757322174], [736579.0, 0.13924050632911392, 0.18565400843881857, 0.16877637130801687, 0.26582278481012656, 0.21940928270042195], [736580.0, 0.15413533834586465, 0.14661654135338345, 0.21428571428571427, 0.23684210526315788, 0.22932330827067668], [736581.0, 0.12413793103448276, 0.15172413793103448, 0.1793103448275862, 0.3, 0.22758620689655173], [736582.0, 0.18926553672316385, 0.20056497175141244, 0.1440677966101695, 0.192090395480226, 0.2598870056497175], [736583.0, 0.32727272727272727, 0.2409090909090909, 0.12272727272727273, 0.125, 0.17272727272727273], [736584.0, 0.2785388127853881, 0.3470319634703196, 0.1324200913242009, 0.1506849315068493, 0.0684931506849315], [736585.0, 0.2893401015228426, 0.37055837563451777, 0.09137055837563451, 0.14720812182741116, 0.07614213197969544], [736586.0, 0.21341463414634146, 0.3780487804878049, 0.08536585365853659, 0.18292682926829268, 0.10975609756097561], [736587.0, 0.2080536912751678, 0.3422818791946309, 0.1342281879194631, 0.22818791946308725, 0.053691275167785234], [736588.0, 0.2558139534883721, 0.29069767441860467, 0.05813953488372093, 0.18604651162790697, 0.1511627906976744], [736589.0, 0.19736842105263158, 0.3157894736842105, 0.07894736842105263, 0.19736842105263158, 0.14473684210526316], [736590.0, 0.17094017094017094, 0.3247863247863248, 0.09401709401709402, 0.2564102564102564, 0.1111111111111111], [736591.0, 0.144, 0.312, 0.072, 0.304, 0.128], [736592.0, 0.07575757575757576, 0.2878787878787879, 0.1893939393939394, 0.3106060606060606, 0.09848484848484848], [736593.0, 0.08196721311475409, 0.4672131147540984, 0.040983606557377046, 0.27049180327868855, 0.09836065573770492], [736594.0, 0.1259259259259259, 0.3037037037037037, 0.1111111111111111, 0.31851851851851853, 0.1037037037037037], [736595.0, 0.16279069767441862, 0.43023255813953487, 0.11627906976744186, 0.16279069767441862, 0.06976744186046512], [736596.0, 0.16981132075471697, 0.2830188679245283, 0.07547169811320754, 0.18867924528301888, 0.18867924528301888], [736597.0, 0.17307692307692307, 0.41346153846153844, 0.04807692307692308, 0.2403846153846154, 0.07692307692307693], [736598.0, 0.11428571428571428, 0.3523809523809524, 0.10476190476190476, 0.2571428571428571, 0.12380952380952381], [736599.0, 0.09523809523809523, 0.35714285714285715, 0.16666666666666666, 0.2261904761904762, 0.09523809523809523], [736600.0, 0.1588785046728972, 0.3644859813084112, 0.07476635514018691, 0.205607476635514, 0.14953271028037382], [736601.0, 0.21153846153846154, 0.28846153846153844, 0.10576923076923077, 0.2403846153846154, 0.10576923076923077]]}, "id": "el8983139860964035920"});
+      });
+    });
+}else{
+    // require.js not available: dynamically load d3 & mpld3
+    mpld3_load_lib("https://mpld3.github.io/js/d3.v3.min.js", function(){
+         mpld3_load_lib("https://mpld3.github.io/js/mpld3.v0.3.js", function(){
+                 
+    mpld3.register_plugin("interactive_legend", InteractiveLegend);
+    InteractiveLegend.prototype = Object.create(mpld3.Plugin.prototype);
+    InteractiveLegend.prototype.constructor = InteractiveLegend;
+    InteractiveLegend.prototype.requiredProps = ["element_ids", "labels"];
+    InteractiveLegend.prototype.defaultProps = {"ax":null,
+                                                "alpha_unsel":0.2,
+                                                "alpha_over":1.0,
+                                                "start_visible":true}
+    function InteractiveLegend(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+
+    InteractiveLegend.prototype.draw = function(){
+        var alpha_unsel = this.props.alpha_unsel;
+        var alpha_over = this.props.alpha_over;
+
+        var legendItems = new Array();
+        for(var i=0; i<this.props.labels.length; i++){
+            var obj = {};
+            obj.label = this.props.labels[i];
+
+            var element_id = this.props.element_ids[i];
+            mpld3_elements = [];
+            for(var j=0; j<element_id.length; j++){
+                var mpld3_element = mpld3.get_element(element_id[j], this.fig);
+
+                // mpld3_element might be null in case of Line2D instances
+                // for we pass the id for both the line and the markers. Either
+                // one might not exist on the D3 side
+                if(mpld3_element){
+                    mpld3_elements.push(mpld3_element);
+                }
+            }
+
+            obj.mpld3_elements = mpld3_elements;
+            obj.visible = this.props.start_visible[i]; // should become be setable from python side
+            legendItems.push(obj);
+            set_alphas(obj, false);
+        }
+
+        // determine the axes with which this legend is associated
+        var ax = this.props.ax
+        if(!ax){
+            ax = this.fig.axes[0];
+        } else{
+            ax = mpld3.get_element(ax, this.fig);
+        }
+
+        // add a legend group to the canvas of the figure
+        var legend = this.fig.canvas.append("svg:g")
+                               .attr("class", "legend");
+
+        // add the rectangles
+        legend.selectAll("rect")
+                .data(legendItems)
+                .enter().append("rect")
+                .attr("height", 10)
+                .attr("width", 25)
+                .attr("x", ax.width + ax.position[0] + 25)
+                .attr("y",function(d,i) {
+                           return ax.position[1] + i * 25 + 10;})
+                .attr("stroke", get_color)
+                .attr("class", "legend-box")
+                .style("fill", function(d, i) {
+                           return d.visible ? get_color(d) : "white";})
+                .on("click", click).on('mouseover', over).on('mouseout', out);
+
+        // add the labels
+        legend.selectAll("text")
+              .data(legendItems)
+              .enter().append("text")
+              .attr("x", function (d) {
+                           return ax.width + ax.position[0] + 25 + 40;})
+              .attr("y", function(d,i) {
+                           return ax.position[1] + i * 25 + 10 + 10 - 1;})
+              .text(function(d) { return d.label });
+
+
+        // specify the action on click
+        function click(d,i){
+            d.visible = !d.visible;
+            d3.select(this)
+              .style("fill",function(d, i) {
+                return d.visible ? get_color(d) : "white";
+              })
+            set_alphas(d, false);
+
+        };
+
+        // specify the action on legend overlay 
+        function over(d,i){
+             set_alphas(d, true);
+        };
+
+        // specify the action on legend overlay 
+        function out(d,i){
+             set_alphas(d, false);
+        };
+
+        // helper function for setting alphas
+        function set_alphas(d, is_over){
+            for(var i=0; i<d.mpld3_elements.length; i++){
+                var type = d.mpld3_elements[i].constructor.name;
+
+                if(type =="mpld3_Line"){
+                    var current_alpha = d.mpld3_elements[i].props.alpha;
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.select(d.mpld3_elements[i].path[0][0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("stroke-width", is_over ? 
+                                alpha_over * d.mpld3_elements[i].props.edgewidth : d.mpld3_elements[i].props.edgewidth);
+                } else if((type=="mpld3_PathCollection")||
+                         (type=="mpld3_Markers")){
+                    var current_alpha = d.mpld3_elements[i].props.alphas[0];
+                    var current_alpha_unsel = current_alpha * alpha_unsel;
+                    var current_alpha_over = current_alpha * alpha_over;
+                    d3.selectAll(d.mpld3_elements[i].pathsobj[0])
+                        .style("stroke-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel))
+                        .style("fill-opacity", is_over ? current_alpha_over :
+                                                (d.visible ? current_alpha : current_alpha_unsel));
+                } else{
+                    console.log(type + " not yet supported");
+                }
+            }
+        };
+
+
+        // helper function for determining the color of the rectangles
+        function get_color(d){
+            var type = d.mpld3_elements[0].constructor.name;
+            var color = "black";
+            if(type =="mpld3_Line"){
+                color = d.mpld3_elements[0].props.edgecolor;
+            } else if((type=="mpld3_PathCollection")||
+                      (type=="mpld3_Markers")){
+                color = d.mpld3_elements[0].props.facecolors[0];
+            } else{
+                console.log(type + " not yet supported");
+            }
+            return color;
+        };
+    };
+    
+                 mpld3.draw_figure("fig_el89831398609640359208446288812", {"axes": [{"xlim": [736572.65, 736602.35], "yscale": "linear", "axesbg": "#FFFFFF", "texts": [{"v_baseline": "hanging", "h_anchor": "middle", "color": "#000000", "text": "Time", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [0.49999999999999994, -0.024531024531024515], "rotation": -0.0, "id": "el8983139860947656080"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Number of Tweets Per Day", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 10.0, "position": [-0.007343566171441079, 0.5], "rotation": -90.0, "id": "el8983139860945027600"}, {"v_baseline": "auto", "h_anchor": "middle", "color": "#000000", "text": "Topics Distribution During Hurricane Irma (NMF) (gov_percentage)", "coordinates": "axes", "zorder": 3, "alpha": 1, "fontsize": 12.0, "position": [0.49999999999999994, 1.0069822650467812], "rotation": -0.0, "id": "el8983139860945075344"}], "zoomable": true, "images": [], "xdomain": [[2017, 7, 31, 15, 36, 0, 0.0], [2017, 8, 30, 8, 24, 0, 0.0]], "ylim": [0.01967213114754098, 0.48852459016393446], "paths": [], "sharey": [], "sharex": [], "axesbgalpha": null, "axes": [{"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "bottom", "nticks": 10, "tickvalues": null}, {"scale": "linear", "tickformat": null, "grid": {"gridOn": false}, "visible": true, "fontsize": 10.0, "position": "left", "nticks": 6, "tickvalues": null}], "lines": [{"drawstyle": "default", "color": "#1F77B4", "yindex": 1, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945028048"}, {"drawstyle": "default", "color": "#2CA02C", "yindex": 2, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945213392"}, {"drawstyle": "default", "color": "#9467BD", "yindex": 3, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945214224"}, {"drawstyle": "default", "color": "#E377C2", "yindex": 4, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945215312"}, {"drawstyle": "default", "color": "#BCBD22", "yindex": 5, "coordinates": "data", "dasharray": "none", "zorder": 2, "alpha": 1, "xindex": 0, "linewidth": 1.5, "data": "data01", "id": "el8983139860945040272"}], "markers": [], "id": "el8983139860947653392", "ydomain": [0.01967213114754098, 0.48852459016393446], "collections": [], "xscale": "date", "bbox": [0.125, 0.10999999999999999, 0.775, 0.77]}], "height": 1550.0, "width": 6550.0, "plugins": [{"type": "reset"}, {"enabled": false, "button": true, "type": "zoom"}, {"enabled": false, "button": true, "type": "boxzoom"}, {"alpha_over": 1.0, "element_ids": [["el8983139860945028048", "el8983139860945028048pts"], ["el8983139860945213392", "el8983139860945213392pts"], ["el8983139860945214224", "el8983139860945214224pts"], ["el8983139860945215312", "el8983139860945215312pts"], ["el8983139860945040272", "el8983139860945040272pts"]], "labels": ["residents water safe flood power food damage area safety stay", "hurricaneirma recovery help disaster efforts relief affected assistance rescue visit", "emergency management local information safety state evacuation info contact hurricaneirma", "hurricane irma maria gov category flwx update winds florida harvey", "storm surge winds tropical debris force coming hurricaneirma possible life"], "alpha_unsel": 0.2, "ax": null, "start_visible": [true, true, true, true, true], "type": "interactive_legend"}], "data": {"data01": [[736574.0, 0.21686746987951808, 0.18072289156626506, 0.10843373493975904, 0.21686746987951808, 0.21686746987951808], [736575.0, 0.2, 0.29333333333333333, 0.08, 0.22666666666666666, 0.13333333333333333], [736576.0, 0.05952380952380952, 0.21428571428571427, 0.11904761904761904, 0.44047619047619047, 0.10714285714285714], [736577.0, 0.14594594594594595, 0.15135135135135136, 0.15675675675675677, 0.3081081081081081, 0.21081081081081082], [736578.0, 0.24267782426778242, 0.13807531380753138, 0.19665271966527198, 0.22594142259414227, 0.17573221757322174], [736579.0, 0.13924050632911392, 0.18565400843881857, 0.16877637130801687, 0.26582278481012656, 0.21940928270042195], [736580.0, 0.15413533834586465, 0.14661654135338345, 0.21428571428571427, 0.23684210526315788, 0.22932330827067668], [736581.0, 0.12413793103448276, 0.15172413793103448, 0.1793103448275862, 0.3, 0.22758620689655173], [736582.0, 0.18926553672316385, 0.20056497175141244, 0.1440677966101695, 0.192090395480226, 0.2598870056497175], [736583.0, 0.32727272727272727, 0.2409090909090909, 0.12272727272727273, 0.125, 0.17272727272727273], [736584.0, 0.2785388127853881, 0.3470319634703196, 0.1324200913242009, 0.1506849315068493, 0.0684931506849315], [736585.0, 0.2893401015228426, 0.37055837563451777, 0.09137055837563451, 0.14720812182741116, 0.07614213197969544], [736586.0, 0.21341463414634146, 0.3780487804878049, 0.08536585365853659, 0.18292682926829268, 0.10975609756097561], [736587.0, 0.2080536912751678, 0.3422818791946309, 0.1342281879194631, 0.22818791946308725, 0.053691275167785234], [736588.0, 0.2558139534883721, 0.29069767441860467, 0.05813953488372093, 0.18604651162790697, 0.1511627906976744], [736589.0, 0.19736842105263158, 0.3157894736842105, 0.07894736842105263, 0.19736842105263158, 0.14473684210526316], [736590.0, 0.17094017094017094, 0.3247863247863248, 0.09401709401709402, 0.2564102564102564, 0.1111111111111111], [736591.0, 0.144, 0.312, 0.072, 0.304, 0.128], [736592.0, 0.07575757575757576, 0.2878787878787879, 0.1893939393939394, 0.3106060606060606, 0.09848484848484848], [736593.0, 0.08196721311475409, 0.4672131147540984, 0.040983606557377046, 0.27049180327868855, 0.09836065573770492], [736594.0, 0.1259259259259259, 0.3037037037037037, 0.1111111111111111, 0.31851851851851853, 0.1037037037037037], [736595.0, 0.16279069767441862, 0.43023255813953487, 0.11627906976744186, 0.16279069767441862, 0.06976744186046512], [736596.0, 0.16981132075471697, 0.2830188679245283, 0.07547169811320754, 0.18867924528301888, 0.18867924528301888], [736597.0, 0.17307692307692307, 0.41346153846153844, 0.04807692307692308, 0.2403846153846154, 0.07692307692307693], [736598.0, 0.11428571428571428, 0.3523809523809524, 0.10476190476190476, 0.2571428571428571, 0.12380952380952381], [736599.0, 0.09523809523809523, 0.35714285714285715, 0.16666666666666666, 0.2261904761904762, 0.09523809523809523], [736600.0, 0.1588785046728972, 0.3644859813084112, 0.07476635514018691, 0.205607476635514, 0.14953271028037382], [736601.0, 0.21153846153846154, 0.28846153846153844, 0.10576923076923077, 0.2403846153846154, 0.10576923076923077]]}, "id": "el8983139860964035920"});
+            })
+         });
+}
+</script>
