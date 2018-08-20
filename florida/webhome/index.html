@@ -1,0 +1,61 @@
+<html>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<div class = "row">
+	<div class="column"></div>
+	<div class="column"></div>
+	<div class="column"></div>
+</div>
+<style>
+* {
+	box-sizing: border-box;
+}
+.column {
+	float: left;
+	width: 33.33%;
+	padding: 10px;
+}
+
+.row:after{
+		content: "";
+		display: table;
+		clear: both;
+}
+</style>
+
+<center><h1>Graphs for Hurricane Irma</h1><center>
+<div class="row">
+	<div class="column" style="background-color:#aaa;">
+		<h2>NMF Graphs (Unsupervised)</h2>
+		<p><a href="utility_counts_nmf.html">Utility Counts</a></p>
+		<p><a href="utility_percentage_nmf.html">Utility Percentage</a></p>
+		<p><a href="nonprofit_counts_nmf.html">Nonprofit Counts</a></p>
+		<p><a href="nonprofit_percentage_nmf.html">Nonprofit Percentage</a></p>
+		<p><a href="gov_counts_nmf.html">Government Counts</a></p>
+		<p><a href="gov_percentage_nmf.html">Government Percentage</a></p>
+		<h2>NMF Data</h2>
+		<p><a href="unsupervised_utility_tweets.csv">Utility Tweets</a></p>
+		<p><a href="unsupervised_nonprofit_tweets.csv">Nonprofit Tweets</a></p>
+		<p><a href="unsupervised_gov_tweets.csv">Government Tweets</a></p>
+	</div>
+	<div class="column" style="background-color:#bbb;">
+		<h2>Random Forest/TF-IDF Graphs (Supervised)</h2>
+		<p><a href="utility_counts_rf.html">Utility Counts</a></p>
+		<p><a href="utility_percentage_rf.html">Utility Percentage</a></p>
+		<p><a href="media_counts_rf.html">Media Counts</a></p>
+		<p><a href="media_percentage_rf.html">Media Percentage</a></p>
+		<h2>Random Forest/TF-IDF Data</h2>
+		<p><a href="utility_supervised_rf.csv">Utility Tweets</a></p>
+		<p><a href="media_supervised_rf.csv">Media Tweets</a></p>
+	</div>
+	<div class="column" style="background-color:#ccc;">
+		<h2>Random Forest/Doc2Vec Graphs (Supervised)</h2>
+		<p><a href="utility_counts_rf_doc2vec.html">Utility Counts</a></p>
+		<p><a href="utility_percentage_rf_doc2vec.html">Utility Percentage</a></p>
+		<p><a href="media_counts_rf_doc2vec.html">Media Counts</a></p>
+		<p><a href="media_percentage_rf_doc2vec.html">Media Percentage</a></p>
+		<h2>Random Forest/Doc2Vec Data</h2>
+		<p><a href="utility_supervised_rf_doc2vec.csv">Utility Tweets</a></p>
+		<p><a href="media_supervised_rf_doc2vec.csv">Media Tweets</a></p>
+	</div>
+</div>
+</html>
