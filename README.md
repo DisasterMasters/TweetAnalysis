@@ -1,4 +1,4 @@
-<h3>Repository for the code used to analyze tweets from the TweetScraper repo</h3>
+<h1>Repo for analyzing tweets from the TweetScraper repo</h1>
 <h3>The DATA directory</h3>
 <p>This directory contains <i>florida_data</i>, which contains all raw data collected from the TweetScraper. This directory is divided into subdirectories according to whether they are from government, media, utility, or nonprofit source.</p>
 <h3>The FLORIDA directory</h3>
@@ -26,15 +26,17 @@
 <p>Contains the manually classified files sent from Xiaojing. Make sure the tweets are in the first column and the manual code is in the second column! (Might have to move columns in file around or adapt code to change depending on format of file sent). The manually coded files are separated into subdirectories depending on their source.</p>
 <h3>florida/useless</h3>
 <p>Some useless files that I just didn't have the heart to -rm... They are not being used right now but I kept them around just in case.</p>
+<h3>florida/webhome</h3>
+<p>Contains the index.html file I use on my EECS web directory.</h3>
 
 <h1>Recommendations/Workflow</h1>
 <p><i>Right now I am manually running these files, but I would suggest writing a shell script to automate the command line arguments being typed.</i></p>
-<p><i>With Puerto Rico coming soon, I would recommend redoing the directory structure in a way that makes more sense and is more efficient to reach both Florida and Puerto Rico tweets</i></p>
-<p>When receiving new data, put it into the DATA directory under its appropriate source</br>
-<br>Then, run lex_dates.py on the source you want to analyze</br>
-<br>After running lex_dates.py, select which method you want (supervised/unsupervised), and run it</br>
+<p><i>With Puerto Rico coming soon, I would recommend redoing the directory structure in a way that makes more sense and is more efficient to reach both Florida and Puerto Rico tweets.</i></p>
+<p>When receiving new data, put it into the DATA directory under its appropriate source.</br>
+<br>Then, run lex_dates.py on the source you want to analyze.</br>
+<br>After running lex_dates.py, select which method you want (supervised/unsupervised), and run it.</br>
 <br>If you chose the unsupervised method, you will have to run represent.py</br>
-<br>Then, depending on if you chose unsupervised or supervised, run either sup_graphs.py or un_graphs.py and get your visualizations</br>
+<br>Then, depending on if you chose unsupervised or supervised, run either sup_graphs.py or un_graphs.py and get your visualizations.</br>
 
 
 
