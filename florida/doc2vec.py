@@ -19,6 +19,7 @@ import nltk
 import io
 
 #from medium.com (mostly)
+#this is the format the tweets have to be in order for the doc2vec model to accept them
 class LabeledLineSentence(object):
 	
 	def __init__(self, doc_list, labels_list):
@@ -47,7 +48,7 @@ included = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 file_name = ''
 if typeoffile == 'utility':
         file_name = 'training_data/utility_data.txt'
-        included = [1, 4, 8, 9, 10, 11, 12, 14, 15]
+        included = [1, 4, 8, 9, 10, 11, 12, 14, 15] #the categories xiaojing wants included
 if typeoffile == 'media':
         file_name = 'training_data/media_data.txt'
 if typeoffile == 'nonprofit':
@@ -102,4 +103,4 @@ training_data = LabeledLineSentence(tweets, labels_list)
 model = Doc2Vec(vector_size=50, min_count=3, dm=1)
 model.build_vocab(training_data)
 model.train(training_data, total_examples=model.corpus_count, epochs=200)
-model.save('doc2vecmodels/doc2vecmodel_' + typeoffile) 
+model.save('doc2vecmodels/doc2vecmodel_' + typeoffile) #save the model
