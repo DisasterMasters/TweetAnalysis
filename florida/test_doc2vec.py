@@ -70,7 +70,7 @@ for dirs, subdirs, files in os.walk("training_data/supervised_data/" + typeoffil
 					labels_list.append(label)
 					tweets.append(tweet)
 
-
+#split into test and train samples
 X_train, X_test, y_train, y_test = train_test_split(tweets, labels_list, test_size=0.33, random_state=42)
 
 #put into proper format
@@ -84,6 +84,7 @@ model.train(training_data, total_examples=model.corpus_count, epochs=200)
 counter = 0.0
 correct = 0.0
 
+#calculate percent correct
 for x, y in itertools.izip(X_test, y_test):
 	split = x.decode('utf-8')
         split = nltk.word_tokenize(split)
@@ -95,6 +96,7 @@ for x, y in itertools.izip(X_test, y_test):
 	if int(prediction) == int(y):
 		correct += 1.0
 
+#print score
 percent_correct = (correct/counter) * 100
 print "Percent correct: " + str(percent_correct) + "%"
 
