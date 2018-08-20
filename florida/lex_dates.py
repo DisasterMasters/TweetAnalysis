@@ -9,12 +9,14 @@ import re
 
 #enter argument as to which file the program will take to convert to test data
 typeoffile = sys.argv[1]
+exclude = []
 
 #choose between utility, media, nonprofit, and government
 if typeoffile == 'utility':
 	outfile = 'training_data/utility_data.txt'
 if typeoffile == 'media':
 	outfile = 'training_data/media_data.txt'
+	exclude = ['puerto rico', 'virgin islands', 'texas', 'houston', 'maria', 'jose', 'harvey', 'katrina']
 if typeoffile == 'nonprofit':
 	outfile = 'training_data/nonprofit_data.txt'
 if typeoffile == 'gov':
@@ -53,7 +55,7 @@ for dirs, subdirs, files in os.walk(direc):
 				if fname[0] == '@' or fname == "FloridaMediaTweets.csv":
 					tweet = row[4]
 					link = row[9]
-				if any(txt in tweet for txt in lex):
+				if any(txt in tweet for txt in lex) and not(any(txt in tweet for txt in exclude)):
 					#deal with messy dates
 					date_text = row[1].split(' ')[0]
 					date_text = date_text.strip()

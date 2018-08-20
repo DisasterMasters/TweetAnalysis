@@ -29,9 +29,10 @@ file_name = ''
 
 if typeoffile == 'utility':
         file_name = 'training_data/utility_data.txt'
-	included = [1, 4, 8, 9, 10, 11, 12, 14, 15] 
+#	included = [1, 4, 8, 9, 10, 11, 12, 14, 15] 
 if typeoffile == 'media':
         file_name = 'training_data/media_data.txt'
+	included = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] 
 if typeoffile == 'nonprofit':
         file_name = 'training_data/nonprofit_data.txt'
 if typeoffile == 'gov':
@@ -55,7 +56,7 @@ for dirs, subdirs, files in os.walk("training_data/supervised_data/" + typeoffil
 				#put into dictionary so we can count the tweets per label
 				if label not in tweetlabel_dict and label != 17:
 					tweetlabel_dict[label] = [tweet]
-				else:
+				elif label != 17:
 					tweetlabel_dict[label].append(tweet)
 
 tweets = []
