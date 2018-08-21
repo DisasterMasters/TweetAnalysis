@@ -14,9 +14,9 @@
 <li><b>test_doc2vec.py</b>: this program tests the accuracy of the doc2vec supervised learning method on the manually coded tweets. The program will output a percentage correct to the command line. <p>USAGE: python test_doc2vec.py &lt;tweetsource&gt;</p></li> 
 <li><b>test_randomforest.py</b>: this program tests the accuracy of the random forest supervised learning method on the manually coded tweets. The program will output a correctness score to the command line (the score is the percentage correct if multiplied by 100). <p>USAGE: python test_randomforest.py &lt;tweetsource&gt;</p></li>
 <li><b>un_graphs.py</b>: this program is used to create the graphs that come from the unsupervised training (NMF). The second command line argument will either be n or p. Putting n will produce a graph showing frequency count, while putting p will produce a graph showing percentage. The type of visualization will be reflected in the name of the file. The program loads the predictions from NMF and generates an HTML file under <i>results/&lt;tweetsource&gt;_nmf.html</i>containing an interactive graph. The HTML file is later scp'd to the EECS webhome directory.<p> USAGE: python un_graphs.py &lt;tweetsource&gt; &lt;n/p&gt;</p></li></ul>
-<h3>florida/doc2vecmodels directory</h3>
+<h3>florida/doc2vecmodels</h3>
 <p>Stores the models generated from doc2vec.py</p>
-<h3>florida/results directory</h3>
+<h3>florida/results</h3>
 <p>Stores the results from the unsupervised/supervised methods, the graphs from these methods, and the indices from the tf-idf matrix from NMF</p>
 <h3>florida/tmp</h3>
 <p>Random programs that might be useful later on. Contains programs to randomize output files for manual coding and some smaller files to use to test code</p>

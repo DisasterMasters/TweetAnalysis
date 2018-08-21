@@ -49,8 +49,14 @@ fig = plt.figure()
 ax = fig.add_subplot(111)
 ax.set_prop_cycle(color=[cm(1.*i/colors) for i in range(colors)])
 
+
 #change scheme from google docs (different numbers for utility and media tweets)
 label_titles = ['Unrelated', 'Preparedness', 'Response', 'Status', 'Impact', 'Looting', 'Price Gouging', 'Other indirect Impact', 'Recovery', 'Requesting Help', 'Relief Efforts', 'Commenting Government', 'Commenting Utility', 'Commenting Media Coverage', 'Thanks', 'Well Wishes', 'Related to Other Hurricanes']
+
+#will these labels change again? 
+if name == "utility":
+	label_titles = ['', 'Criticism utility performance', 'Complaints no power', 'Anger towards utility', 'Requesting for help', 'Tips/advice/comforting', 'Praise/thank/defend companies', 'Response to customers', 'Report']
+
 
 ordered_titles = []
 
