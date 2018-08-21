@@ -16,14 +16,19 @@ if typeoffile == 'utility':
 	outfile = 'training_data/utility_data.txt'
 if typeoffile == 'media':
 	outfile = 'training_data/media_data.txt'
+	#REMOVE IF NOT DEALING WITH FLORIDA TWEETS
 	exclude = ['puerto rico', 'virgin islands', 'texas', 'houston', 'maria', 'jose', 'harvey', 'katrina']
 if typeoffile == 'nonprofit':
 	outfile = 'training_data/nonprofit_data.txt'
 if typeoffile == 'gov':
 	outfile = 'training_data/gov_data.txt'
-
+if typeoffile == 'env':
+	outfile = 'training_data/env_data.txt'
+if len(sys.argv) > 1:
+	outfile = sys.argv[2]
 #find directory containing files with data from tweet scraper
-direc = "../DATA/florida_data/" + typeoffile + "_data"
+#direc = "../DATA/florida_data/" + typeoffile + "_data"
+direc = "./"
 
 #open output file
 file = io.open(outfile, "w", encoding="utf-8")
@@ -89,7 +94,7 @@ for dirs, subdirs, files in os.walk(direc):
 						text = text + "\t"
 						#decode text 
 						text = text.decode('utf-8', errors='ignore')
-						file.write(text)
+						file.write(text + '\n')
 
 			
 
