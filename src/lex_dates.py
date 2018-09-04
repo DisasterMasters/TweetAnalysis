@@ -10,7 +10,9 @@ import re
 #enter argument as to which file the program will take to convert to test data
 typeoffile = sys.argv[1]
 exclude = []
-
+# TEMP: base exclusion
+exclude_base = ['puerto rico', 'virgin islands', 'texas', 'houston', 'maria', 'jose', 'harvey', 'katrina', 'florida']
+#add cmd line denoting location and change data directories based on that
 #choose between utility, media, nonprofit, and government
 if typeoffile == 'utility':
 	outfile = 'training_data/utility_data.txt'
@@ -18,6 +20,9 @@ if typeoffile == 'media':
 	outfile = 'training_data/media_data.txt'
 	#REMOVE IF NOT DEALING WITH FLORIDA TWEETS
 	exclude = ['puerto rico', 'virgin islands', 'texas', 'houston', 'maria', 'jose', 'harvey', 'katrina']
+	exclude = exclude_base.copy()
+#remove certain words depending on where data is from`
+	exclude.remove('florida')
 if typeoffile == 'nonprofit':
 	outfile = 'training_data/nonprofit_data.txt'
 if typeoffile == 'gov':
@@ -60,7 +65,7 @@ for dirs, subdirs, files in os.walk(direc):
 				if fname[0] == '@' or fname == "FloridaMediaTweets.csv":
 					tweet = row[4]
 					link = row[9]
-				if any(txt in tweet for txt in lex) and not(any(txt in tweet for txt in exclude)):
+				if any((txt in tweet) for txt in lex) and not(any(txt in tweet for txt in exclude)):
 					#deal with messy dates
 					date_text = row[1].split(' ')[0]
 					date_text = date_text.strip()
@@ -69,9 +74,12 @@ for dirs, subdirs, files in os.walk(direc):
 						date = datetime.strptime(date_text, '%m/%d/%Y')
 					elif '-' in date_text:
 						date = datetime.strptime(date_text, '%Y-%m-%d')
+					'''
+					prob dont need this
 					#make sure date is in september
 					start = datetime(year=2017, month=9, day=1)
 					end = datetime(year=2017, month=9, day=30)
+					'''
 					#split tweet row to make sure there are more than 3 words in it
 					tmp = tweet.split(' ')
 					if start < date < end and len(tmp) > 3:
