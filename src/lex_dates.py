@@ -11,20 +11,21 @@ import sys
 import re
 
 if len(sys.argv) < 3:
-    print("Usage: %s [category or input_dir] [location or output_file]")
+    print("Usage: " + sys.argv[0] +
+          " [category or input_dir] [location or output_file]")
     exit(1)
 
 # Get the root directory of the project
-cur_dir = os.path.abspath('.')
 root_dir = os.path.abspath(__file__)
+cur_dir = "."
 
-while root_dir != os.path.abspath(os.sep):
+while cur_dir != '':
     if os.path.isdir(root_dir + '/.git'):
         break
 
-    root_dir = os.path.split(root_dir)[0]
+    root_dir, cur_dir = os.path.split(root_dir)
 
-if root_dir == os.path.abspath(os.sep):
+if cur_dir == '':
     print("Error: can't locate root directory")
     exit(1)
 
@@ -75,8 +76,6 @@ for dirs, subdirs, files in os.walk(direc):
         #open csv file if found
         delim = ',' if fname.endswith(".csv") else '|'
         csv_f = csv.reader(f, delimiter = delim)
-
-        print(dirs + "/" + fname)
 
         header = next(csv_f, None) #skip header, save for output
         for row in csv_f:
