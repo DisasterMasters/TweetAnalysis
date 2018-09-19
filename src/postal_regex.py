@@ -1,3 +1,6 @@
+# Uncomment for Python 2
+#from __future__ import *
+
 import collections
 import re
 import sys
@@ -146,7 +149,7 @@ class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street
         if results is not None:
             for coord in results:
                 if "USA" in coord.address:
-                    return (coord.latitude, coord.longitude)
+                    return coord
 
         return None
 
@@ -181,11 +184,11 @@ with open(sys.argv[1]) as fd:
 
             tweets_w_addrs.append(tweet)
 
-            coords = addr.geocode(geolocator)
+            coord = addr.geocode(geolocator)
 
-            if coords is not None:
+            if coord is not None:
                 tweet = tweet.copy()
-                tweet.append(coords)
+                tweet.append((coord.latitude, coord.longitude))
 
                 tweets_w_coords.append(tweet)
 
