@@ -1,3 +1,6 @@
+# Uncomment for Python 2
+#from __future__ import *
+
 import csv
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
@@ -21,18 +24,18 @@ labels_list = []
 tweetlabel_dict = {}
 
 #pick file: media, utility, gov, or nonprofit
-typeoffile = sys.argv[1] 
+typeoffile = sys.argv[1]
 
-included = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] 
+included = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 
 file_name = ''
 
 if typeoffile == 'utility':
         file_name = 'training_data/utility_data.txt'
-#	included = [1, 4, 8, 9, 10, 11, 12, 14, 15] 
+#	included = [1, 4, 8, 9, 10, 11, 12, 14, 15]
 if typeoffile == 'media':
         file_name = 'training_data/media_data.txt'
-	included = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] 
+	included = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 if typeoffile == 'nonprofit':
         file_name = 'training_data/nonprofit_data.txt'
 if typeoffile == 'gov':
@@ -64,7 +67,7 @@ labels_list = []
 
 
 #balancing out the training data (~500 in each category)
-for k, v in tweetlabel_dict.iteritems():
+for k, v in tweetlabel_dict.items():
 
 	if len(v) > 500:
 		sample = random.sample(v, 500)
@@ -77,7 +80,7 @@ for k, v in tweetlabel_dict.iteritems():
 		for i in range (0, int(iters)):
 			for vals in v:
 				tweets.append(vals)
-				labels_list.append(k)	
+				labels_list.append(k)
 
 
 
@@ -94,13 +97,13 @@ for t in test:
 		t = t.split('~+&$!sep779++')
 		if t != ['']:
 			test_data.append([t[0], t[1], t[2]])
-	
+
 #fit tf-idf with the training data
 tfidf = TfidfVectorizer(sublinear_tf=True, min_df=5, norm='l2', encoding='latin-1', ngram_range=(1, 2), stop_words='english')
 features = tfidf.fit_transform(tweets).toarray()
 labels = labels_list
 
-#train the model 
+#train the model
 count_vect = CountVectorizer()
 X_counts = count_vect.fit_transform(tweets)
 tfidf_transformer = TfidfTransformer()
@@ -126,5 +129,5 @@ for t in test_data:
                         date = datetime.strptime(t[1], '%Y-%m-%d')
 		#writing tweet, prediction, date, and permalink
 		writer.writerow([t[0], int(prediction), date.strftime('%m/%d/%Y'), t[2]])
-	
+
 
