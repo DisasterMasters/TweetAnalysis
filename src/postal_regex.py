@@ -6,7 +6,7 @@ import sys
 from geopy.geocoders import Nominatim
 
 # Obtained from <https://pe.usps.com/text/pub28/28apc_002.htm>
-STREET_SUFFIXES = frozenset({
+STREET_SUFFIXES = frozenset([
     'ALLEE', 'ALLEY', 'ALLY', 'ALY', 'ANEX', 'ANNEX', 'ANNX', 'ANX', 'ARC',
     'ARCADE', 'AV', 'AVE', 'AVEN', 'AVENU', 'AVENUE', 'AVN', 'AVNUE', 'BAYOO',
     'BAYOU', 'BCH', 'BEACH', 'BEND', 'BG', 'BGS', 'BLF', 'BLFS', 'BLUF',
@@ -72,22 +72,22 @@ STREET_SUFFIXES = frozenset({
     'VILLIAGE', 'VIS', 'VIST', 'VISTA', 'VL', 'VLG', 'VLGS', 'VLLY', 'VLY',
     'VLYS', 'VST', 'VSTA', 'VW', 'VWS', 'WALK', 'WALKS', 'WALL', 'WAY',
     'WAYS', 'WELL', 'WELLS', 'WL', 'WLS', 'WY', 'XING', 'XRD', 'XRDS'
-})
+])
 
-STATE_INITIALS = frozenset({
+STATE_INITIALS = frozenset([
     'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID',
     'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS',
     'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK',
     'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV',
     'WI', 'WY', 'AS', 'DC', 'FM', 'GU', 'MH', 'MP', 'PW', 'PR', 'VI'
-})
+])
+
+LINE1REGEX = re.compile(r'(?P<house_number>[0-9]{1,10}) (?P<street>([A-Z][a-z]* ?)+? (?P<street_suffix>[A-Z][a-z]{1,9}))')
+LINE2REGEX = re.compile(r'(?P<city>([A-Z][a-z]+ ?)+?),? (?P<state>[A-Z]{2})( (?P<zip_code>[0-9]{5}(-[0-9]{4})?))?')
 
 class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street city state zip_code')):
     @staticmethod
     def match(text):
-        LINE1REGEX = re.compile(r'(?P<house_number>[0-9]{1,10}) (?P<street>([A-Z][a-z]* ?)+? (?P<street_suffix>[a-z]+))')
-        LINE2REGEX = re.compile(r'(?P<city>([A-Z][a-z]+ ?)+?), (?P<state>[A-Z]{2})( (?P<zip_code>[0-9]{5}(-[0-9]{4})?))?')
-
         line1 = LINE1REGEX.search(text)
         line2 = LINE2REGEX.search(text)
 
@@ -126,20 +126,19 @@ class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street
     def __str__(self):
         addrstr = ""
 
-        if addr.street is not None:
-            addrstr += addr.house_number + " " + addr.street
+        if self.street is not None:
+            addrstr += self.house_number + " " + self.street
 
-            if addr.city is not None:
+            if self.city is not None:
                 addrstr += ", "
 
-        if addr.city is not None:
-            addrstr += addr.city + ", " + addr.state
+        if self.city is not None:
+            addrstr += self.city + ", " + self.state
 
-            if addr.zip_code is not None:
-                addrstr += " " + addr.zip_code
+            if self.zip_code is not None:
+                addrstr += " " + self.zip_code
 
         return addrstr
-
 
     def geocode(self, geolocator):
         results = geolocator.geocode(str(self), exactly_one = False)
@@ -159,7 +158,8 @@ all_tweets = []
 tweets_w_addrs = []
 tweets_w_coords = []
 
-geolocator = Nominatim(user_agent = "disaster-masters-curent")
+# Use OpenStreetMap because it's free, might switch to Google Maps later
+geolocator = Nominatim(user_agent = "disaster-masters-curent-utk")
 
 with open(sys.argv[1]) as fd:
     for tweet in fd.read().split('\t'):
@@ -190,7 +190,7 @@ with open(sys.argv[1]) as fd:
                 tweets_w_coords.append(tweet)
 
 for i in tweets_w_coords:
-    print(i[0] + " " + str(i[-1]))
+    print("\"" + i[0] + "\" " + str(i[-2]) + ", " + str(i[-1]))
 
 '''
 Don't do anything yet with the data, except print the percentage of tweets with
