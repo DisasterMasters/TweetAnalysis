@@ -189,6 +189,9 @@ with open(sys.argv[1]) as fd:
 
                 tweets_w_coords.append(tweet)
 
+for i in tweets_w_coords:
+    print(i[0] + " " + str(i[-1]))
+
 '''
 Don't do anything yet with the data, except print the percentage of tweets with
 potential address information to stdout. We are going to need access to the
