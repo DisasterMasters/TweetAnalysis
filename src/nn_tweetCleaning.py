@@ -157,7 +157,7 @@ def main(model_type):
 
     # Training parameters
     batch_size = 64
-    num_epochs = 30
+    num_epochs = 5
 
     # Prepossessing parameters
     sequence_length = 400
@@ -198,18 +198,12 @@ def main(model_type):
         raise ValueError("Unknown model type")
 
     # Build model
-    if model_type == "CNN-static":
-        input_shape = (sequence_length, embedding_dim)
-    else:
-        input_shape = (sequence_length,)
+    input_shape = (sequence_length,)
 
     model_input = Input(shape=input_shape)
 
     # Static model does not have embedding layer
-    if model_type == "CNN-static":
-        z = model_input
-    else:
-        z = Embedding(len(vocabulary_inv), embedding_dim, input_length=sequence_length, name="embedding")(model_input)
+    z = Embedding(len(vocabulary_inv), embedding_dim, input_length=sequence_length, name="embedding")(model_input)
 
     z = Dropout(dropout_prob[0])(z)
 
@@ -256,10 +250,10 @@ def main(model_type):
     list_of_files = glob.glob(model_directory + '*')  # list of files and their path
 
     if len(list_of_files) >= 1:
-        latest_file = max(list_of_files, key=os.path.getctime)
-        print(latest_file)
+        latest_file = sorted(list_of_files, key=lambda x: float(x.replace('/home/manny/PycharmProjects/TweetAnalysis/florida/results/nn_cleaning/cnn_rand_models/weights-improvement-', '').replace('.hdf5', '')))
+        print(latest_file[0])
 
-        model.load_weights(latest_file)
+        model.load_weights(latest_file[0])
     else:
         print("No saved checkpoint found: beginning training")
     # Train the model
@@ -267,10 +261,19 @@ def main(model_type):
               validation_data=(x_test, y_test), verbose=2, callbacks=[check_pointer, TensorBoard(
             log_dir=tsboard_path)])
 
-# model_type = "CNN-rand"  # CNN-rand|CNN-non-static
+model_type = "CNN-rand"  # CNN-rand|CNN-non-static
 
 main("CNN-rand")
 
 # model_type = "CNN-non-static"  # CNN-rand|CNN-non-static
 
-main("CNN-non-static")
+main("CNN-non-static")# model_type = "CNN-rand"  # CNN-rand|CNN-non-static
+
+# main("CNN-rand")
+#
+# # model_type = "CNN-non-static"  # CNN-rand|CNN-non-static
+#
+# main("CNN-non-static")
+
+
+
