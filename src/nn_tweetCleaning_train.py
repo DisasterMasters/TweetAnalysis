@@ -250,7 +250,7 @@ def main(model_type):
     list_of_files = glob.glob(model_directory + '*')  # list of files and their path
 
     if len(list_of_files) >= 1:
-        latest_file = sorted(list_of_files, key=lambda x: float(x.replace('/home/manny/PycharmProjects/TweetAnalysis/florida/results/nn_cleaning/cnn_rand_models/weights-improvement-', '').replace('.hdf5', '')))
+        latest_file = sorted(list_of_files, key=lambda x: float(os.path.basename(x).replace('weights-improvement-', '').replace('.hdf5', '')))
         print(latest_file[0])
 
         model.load_weights(latest_file[0])
