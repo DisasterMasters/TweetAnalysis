@@ -4,10 +4,13 @@
 import collections
 import re
 import sys
+import time
 
 #import tweepy
 import nltk
-from geopy.geocoders import Nominatim
+
+from city_area import CityAreaDB, GeolocationDB
+from geopy.exc import GeopyError
 
 # Obtained from <https://pe.usps.com/text/pub28/28apc_002.htm>
 STREET_SUFFIXES = frozenset([
@@ -86,24 +89,24 @@ STATE_INITIALS = frozenset([
     'WI', 'WY', 'AS', 'DC', 'FM', 'GU', 'MH', 'MP', 'PW', 'PR', 'VI'
 ])
 
-LINE1REGEX = re.compile(r'(?P<house_number>[0-9]{1,10}) (?P<street>([A-Z][a-z]* ?)+? (?P<street_suffix>[A-Z][a-z]{1,9}))\.?( [NSEW]{1,2})?')
-LINE2REGEX = re.compile(r'(?P<city>([A-Z][a-z]+ ?)+?),? (?P<state>[A-Z]{2})( (?P<zip_code>[0-9]{5}(-[0-9]{4})?))?')
-
-NLP_TOKENIZER = nltk.RegexpTokenizer(r'''(?x)
-     https?://[^ ]+  # URLs
-   | \@[0-9A-Za-z_]+ # Twitter usernames
-   | \#[0-9A-Za-z_]+ # Twitter hashtags
-   |\w+              # Words/punctuation
-   |[^\w\s]+
-''')
-
-NLP_PARSER = nltk.RegexpParser(r'''
-NP: {<(NNP.?|CD)>+}
-    {<DT|PP\$>?<(JJ|CD)>*<(NN[A-Z]?|CD)>+}
-''')
-
 class StreetAddress(collections.namedtuple('StreetAddress',
                     'house_number street city state zip_code raw')):
+    LINE1_REGEX = re.compile(r'(?P<house_number>[0-9]{1,10}) (?P<street>([A-Z][a-z]* ?)+? (?P<street_suffix>[A-Z][a-z]{1,9}))\.?( [NSEW]{1,2})?')
+    LINE2_REGEX = re.compile(r'(?P<city>([A-Z][a-z]+ ?)+?),? (?P<state>[A-Z]{2})( (?P<zip_code>[0-9]{5}(-[0-9]{4})?))?')
+
+    NLP_TOKENIZER = nltk.RegexpTokenizer(r'''(?x)
+         https?://[^ ]+  # URLs
+       | \@[0-9A-Za-z_]+ # Twitter usernames
+       | \#[0-9A-Za-z_]+ # Twitter hashtags
+       | \w+             # Words/punctuation
+       | [^\w\s]+
+    ''')
+
+    NLP_PARSER = nltk.RegexpParser(r'''
+    NP: {<(NNP.?|CD)>+}
+        {<DT|PP\$>?<(JJ|CD)>*<(NN[A-Z]?|CD)>+}
+    ''')
+
     def __str__(self):
         addrstr = ""
 
@@ -121,6 +124,21 @@ class StreetAddress(collections.namedtuple('StreetAddress',
 
         return addrstr
 
+    def dict(self):
+        ret = {"country": "USA"}
+
+        if self.street is not None:
+            ret["street"] = self.house_number + " " + self.street
+
+        if self.city is not None:
+            ret["city"] = self.city
+            ret["state"] = self.state
+
+            if self.zip_code is not None:
+                ret["postalcode"] = self.zip_code
+
+        return ret
+
     @staticmethod
     def nlp(text):
         '''
@@ -128,33 +146,34 @@ class StreetAddress(collections.namedtuple('StreetAddress',
         '''
 
         try:
-            word_forest = [NLP_PARSER.parse(nltk.pos_tag(NLP_TOKENIZER.tokenize(sentence))) for sentence in nltk.sent_tokenize(text)]
-            word_forest.reverse()
-
-            while word_forest:
-                tree = word_forest.pop()
-
-                if type(tree) is nltk.Tree:
-                    if tree.label() == "NP" and tree[0][0].isdigit():
-                        for i in range(2, len(tree)):
-                            if tree[i][0].upper() in STREET_SUFFIXES:
-                                leaves = [j[0] for j in tree.leaves()]
-
-                                return StreetAddress(
-                                    house_number = tree[0][0],
-                                    street = " ".join(leaves[1:(i + 1)]),
-                                    city = None,
-                                    state = None,
-                                    zip_code = None,
-                                    raw = " ".join(leaves)
-                                )
-                    else:
-                        for subtree in tree[::-1]:
-                            word_forest.append(subtree)
-
-            return None
+            word_forest = [StreetAddress.NLP_PARSER.parse(nltk.pos_tag(StreetAddress.NLP_TOKENIZER.tokenize(sentence))) for sentence in nltk.sent_tokenize(text)]
         except UnicodeDecodeError:
             return None
+
+        word_forest.reverse()
+
+        while word_forest:
+            tree = word_forest.pop()
+
+            if type(tree) is nltk.Tree:
+                if tree.label() == "NP" and tree[0][0].isdigit():
+                    for i in range(2, len(tree)):
+                        if tree[i][0].upper() in STREET_SUFFIXES:
+                            leaves = [j[0] for j in tree.leaves()]
+
+                            return StreetAddress(
+                                house_number = tree[0][0],
+                                street = " ".join(leaves[1:(i + 1)]),
+                                city = None,
+                                state = None,
+                                zip_code = None,
+                                raw = " ".join(leaves)
+                            )
+                else:
+                    for subtree in tree[::-1]:
+                        word_forest.append(subtree)
+
+        return None
 
     @staticmethod
     def re(text):
@@ -162,8 +181,8 @@ class StreetAddress(collections.namedtuple('StreetAddress',
 
         '''
 
-        line1 = LINE1REGEX.search(text)
-        line2 = LINE2REGEX.search(text)
+        line1 = StreetAddress.LINE1_REGEX.search(text)
+        line2 = StreetAddress.LINE2_REGEX.search(text)
 
         house_number = None
         street       = None
@@ -211,13 +230,16 @@ if len(sys.argv) < 2:
     exit(1)
 
 all_tweets          = []
+
 tweets_w_addrs      = []
 tweets_w_re_addrs   = []
 tweets_w_nlp_addrs  = []
+
 tweets_w_st_addrs   = []
 tweets_w_city_addrs = []
-tweets_w_coords     = []
 
+tweets_w_coords     = []
+tweets_w_city_area  = []
 
 with open(sys.argv[1], "r") as fd:
     for tweet in fd.read().split('\t'):
@@ -261,23 +283,45 @@ with open(sys.argv[1], "r") as fd:
             elif addr.city is not None:
                 tweets_w_city_addrs.append(tweet_copy)
 
-#for i in tweets_w_coords:
-#    print("\"" + i[0] + "\" " + str(i[-2]) + ", " + str(i[-1]))
-
 def format(arr):
     return (len(arr), 100 * len(arr) / len(all_tweets))
 
+with GeolocationDB.open("geolocations.dat") as db:
+    for tweet in tweets_w_addrs:
+        text = tweet[0]
+        addr = tweet[-1]
+
+        try:
+            coord = db.get_coords(**addr.dict())
+        except GeopyError:
+            pass
+
+        if coord is not None:
+            print(str(coord) + " ~= " + str(addr))
+
+            tweet_copy = tweet.copy()
+            tweet_copy.append(coord)
+
+            tweets_w_coords.append(tweet_copy)
+
+print("Total tweets                                   : %d" % len(all_tweets))
+print("------------------------------------------------")
+print("Tweets with an address in their text           : %d (%f %%)" % format(tweets_w_addrs))
+print("Tweets whose address was detected via regexes  : %d (%f %%)" % format(tweets_w_re_addrs))
+print("Tweets whose address was detected via NLP      : %d (%f %%)" % format(tweets_w_nlp_addrs))
+print("Tweets whose address is street-level           : %d (%f %%)" % format(tweets_w_st_addrs))
+print("Tweets whose address is city-level             : %d (%f %%)" % format(tweets_w_city_addrs))
+print("------------------------------------------------")
+print("Tweets whose address is a valid geolocation    : %d (%f %%)" % format(tweets_w_coords))
+
 '''
-Don't do anything yet with the data, except print the percentage of tweets with
-potential address information to stdout. We are going to need access to the
-Twitter API (which needs to be approved) before we can do anything else.
+for tweet in tweets_w_city_addrs:
+    text = tweet[0]
+    addr = tweet[-1]
+
+mean_list =
+mean = sum(l) / len(l)
+
+print("Average area of geolocations that are cities   : %f mi^2")
+print("Average radius of geolocations that are cities : %f mi", )
 '''
-print("Total tweets                                  : %d" % len(all_tweets))
-print("-----------------------------------------------")
-print("Tweets with an address in their text          : %d (%f %%)" % format(tweets_w_addrs))
-print("Tweets whose address was detected via regexes : %d (%f %%)" % format(tweets_w_re_addrs))
-print("Tweets whose address was detected via NLP     : %d (%f %%)" % format(tweets_w_nlp_addrs))
-print("Tweets whose address is street-level          : %d (%f %%)" % format(tweets_w_st_addrs))
-print("Tweets whose address is city-level            : %d (%f %%)" % format(tweets_w_city_addrs))
-print("-----------------------------------------------")
-print("Tweets whose address is a valid geolocation   : %d (%f %%)" % format(tweets_w_coords))
