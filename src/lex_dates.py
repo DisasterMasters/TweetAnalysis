@@ -71,11 +71,10 @@ flag = 0
 #walk through files
 for dirs, subdirs, files in os.walk(direc):
     for fname in files:
-        f = open(dirs + "/" + fname, "r", encoding = "utf-8", errors = 'ignore')
+        f = open(dirs + os.path.sep + fname, "r")
 
         #open csv file if found
-        delim = ',' if fname.endswith(".csv") else '|'
-        csv_f = csv.reader(f, delimiter = delim)
+        csv_f = csv.reader(f, delimiter = '|')
 
         header = next(csv_f, None) #skip header, save for output
         for row in csv_f:
@@ -85,7 +84,7 @@ for dirs, subdirs, files in os.walk(direc):
                 tweet = row[5]
                 link = row[8]
 
-                if fname[0] == '@' or fname == "FloridaMediaTweets.csv":
+                if fname[0] == '@' or fname == "FloridaMediaTweets.txt":
                     tweet = row[4]
                     link = row[9]
 
