@@ -4,6 +4,7 @@
 import atexit
 import csv
 import collections
+import itertools
 import math
 import os
 import re
@@ -280,10 +281,10 @@ def process_csv(ifd, ofd, log = None):
 
     with GeolocationDB.open("geolocations.dat") as geodb:
         with CityAreaDB.open("cityareas.dat") as areadb:
-            for irow in icsv:
+            for irow in itertools.chain((next(),), icsv):
                 if ocsv is None:
                     fieldnames = icsv.fieldnames + ["address", "latitude", "longitude", "latlongerr"]
-                    ocsv = csv.DictWriter(ofd, delimiter = '|', fieldnames = fieldnames)
+                    ocsv = csv.DictWriter(ofd, delimiter = "|", lineterminator = "\n", fieldnames = fieldnames)
                     ocsv.writeheader()
 
                 orow = dict(irow)
@@ -346,18 +347,39 @@ def process_csv(ifd, ofd, log = None):
 
 LOGNAME = "postal_regex.log"
 
+csv.register_dialect(
+    "ivbar",
+    csv.excel,
+    delimiter = "|",
+    quotechar = "'",
+    quoting = csv.QUOTE_ALL,
+    strict = True
+)
+
+csv.register_dialect(
+    "ovbar",
+    csv.unix,
+    delimiter = "|",
+    quotechar = "'",
+    quoting = csv.QUOTE_MINIMAL,
+    strict = True
+)
+
 if __name__ == "__main__":
+
     if len(sys.argv) > 1 and os.path.isdir(sys.argv[1]):
         for dirpath, dirnames, filenames in os.walk(sys.argv[1]):
-            for filename in filenames:
-                filetype = filename[filename.rfind('.'):]
+            for ifname in filenames:
+                rdot = ifname.rfind('.')
 
-                # TODO: process regular CSV files
-                if filetype != ".txt":
+                if ifname[rdot:] == ".txt":
+                    # Assume excel_vbar format
+                elif ifname[rdot:] == ".csv":
+                    # Assume excel_vbar format
+                else
                     continue
 
-                ifname = filename
-                ofname = filename[:filename.rfind('.')] + "_W_COORDS.txt"
+                ofname = ifname[:rdot] + "_W_LOCATION_TAGS" + ifname[rdot:]
 
                 with open(LOGNAME, "a") as log:
                     try:
@@ -369,21 +391,26 @@ if __name__ == "__main__":
 
                         for line in traceback.format_exc().splitlines():
                             log.write("%s -> %s: %s\n" % (ifd.name, ofd.name, line))
+
+                        log.flush()
     else:
-        with open(LOGNAME, "a") as log:
-            try:
-                ifd = open(sys.argv[1], "r", newline = '') if len(sys.argv) > 1 else sys.stdin
-                ofd = open(sys.argv[2], "w", newline = '') if len(sys.argv) > 2 else sys.stdout
+        try:
+            log = open(LOGNAME, "a")
+            ifd = open(sys.argv[1], "r", newline = '') if len(sys.argv) > 1 else sys.stdin
+            ofd = open(sys.argv[2], "w", newline = '') if len(sys.argv) > 2 else sys.stdout
 
-                print(ifd.name)
-                print(ofd.name)
+            print(ifd.name)
+            print(ofd.name)
 
-                process_csv(ifd, ofd, log)
-            except Exception as err:
-                log.write("%s -> %s: Uncaught exception of type %s\n" % (ifd.name, ofd.name, str(type(err))))
+            process_csv(ifd, ofd, log)
+        except Exception as err:
+            log.write("%s -> %s: Uncaught exception of type %s\n" % (ifd.name, ofd.name, str(type(err))))
 
-                for line in traceback.format_exc().splitlines():
-                    log.write("%s -> %s: %s\n" % (ifd.name, ofd.name, line))
-            finally:
-                ifd.close()
-                ofd.close()
+            for line in traceback.format_exc().splitlines():
+                log.write("%s -> %s: %s\n" % (ifd.name, ofd.name, line))
+
+            log.flush()
+        finally:
+            log.close()
+            ifd.close()
+            ofd.close()
