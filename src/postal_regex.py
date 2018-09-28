@@ -1,6 +1,7 @@
 # Uncomment for Python 2
 #from __future__ import *
 
+import atexit
 import collections
 import re
 import sys
@@ -10,10 +11,9 @@ import time
 import nltk
 
 from city_area import CityAreaDB, GeolocationDB
-from geopy.exc import GeopyError
 
 # Obtained from <https://pe.usps.com/text/pub28/28apc_002.htm>
-STREET_SUFFIXES = frozenset([
+STREET_SUFFIXES = {
     'ALLEE', 'ALLEY', 'ALLY', 'ALY', 'ANEX', 'ANNEX', 'ANNX', 'ANX', 'ARC',
     'ARCADE', 'AV', 'AVE', 'AVEN', 'AVENU', 'AVENUE', 'AVN', 'AVNUE', 'BAYOO',
     'BAYOU', 'BCH', 'BEACH', 'BEND', 'BG', 'BGS', 'BLF', 'BLFS', 'BLUF',
@@ -79,7 +79,7 @@ STREET_SUFFIXES = frozenset([
     'VILLIAGE', 'VIS', 'VIST', 'VISTA', 'VL', 'VLG', 'VLGS', 'VLLY', 'VLY',
     'VLYS', 'VST', 'VSTA', 'VW', 'VWS', 'WALK', 'WALKS', 'WALL', 'WAY',
     'WAYS', 'WELL', 'WELLS', 'WL', 'WLS', 'WY', 'XING', 'XRD', 'XRDS'
-])
+}
 
 STATE_INITIALS = frozenset([
     'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID',
@@ -225,9 +225,21 @@ class StreetAddress(collections.namedtuple('StreetAddress',
             raw = raw
         )
 
-if len(sys.argv) < 2:
-    print("Usage: " + sys.argv[0] + " [input_file]")
-    exit(1)
+atexit.register(lambda: print("atexit called"))
+raise Exception("something happened")
+
+
+if len(sys.argv) > 1:
+    ifd = open(sys.argv[1], "r")
+    atexit.register(ifd.close)
+else:
+    ifd = sys.stdin
+
+if len(sys.argv) > 2:
+    ofd = open(sys.argv[2], "w")
+    atexit.register(ofd.close)
+else:
+    ofd = sys.stdout
 
 all_tweets          = []
 
@@ -286,7 +298,9 @@ with open(sys.argv[1], "r") as fd:
 def format(arr):
     return (len(arr), 100 * len(arr) / len(all_tweets))
 
-with GeolocationDB.open("geolocations.dat") as db:
+if "__file__" == __main__:
+    with GeolocationDB.open("geolocations.dat") as geodb:
+        with CityAreaDB.open("geolocations.dat") as areadb:
     for tweet in tweets_w_addrs:
         text = tweet[0]
         addr = tweet[-1]
@@ -303,25 +317,3 @@ with GeolocationDB.open("geolocations.dat") as db:
             tweet_copy.append(coord)
 
             tweets_w_coords.append(tweet_copy)
-
-print("Total tweets                                   : %d" % len(all_tweets))
-print("------------------------------------------------")
-print("Tweets with an address in their text           : %d (%f %%)" % format(tweets_w_addrs))
-print("Tweets whose address was detected via regexes  : %d (%f %%)" % format(tweets_w_re_addrs))
-print("Tweets whose address was detected via NLP      : %d (%f %%)" % format(tweets_w_nlp_addrs))
-print("Tweets whose address is street-level           : %d (%f %%)" % format(tweets_w_st_addrs))
-print("Tweets whose address is city-level             : %d (%f %%)" % format(tweets_w_city_addrs))
-print("------------------------------------------------")
-print("Tweets whose address is a valid geolocation    : %d (%f %%)" % format(tweets_w_coords))
-
-'''
-for tweet in tweets_w_city_addrs:
-    text = tweet[0]
-    addr = tweet[-1]
-
-mean_list =
-mean = sum(l) / len(l)
-
-print("Average area of geolocations that are cities   : %f mi^2")
-print("Average radius of geolocations that are cities : %f mi", )
-'''
