@@ -2,7 +2,10 @@
 #from __future__ import *
 
 import atexit
+import csv
 import collections
+import math
+import os
 import re
 import sys
 import time
@@ -81,13 +84,58 @@ STREET_SUFFIXES = {
     'WAYS', 'WELL', 'WELLS', 'WL', 'WLS', 'WY', 'XING', 'XRD', 'XRDS'
 }
 
-STATE_INITIALS = frozenset([
-    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID',
-    'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS',
-    'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK',
-    'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV',
-    'WI', 'WY', 'AS', 'DC', 'FM', 'GU', 'MH', 'MP', 'PW', 'PR', 'VI'
-])
+STATE_INITIALS = {
+    'AL': 'Alabama',
+    'AK': 'Alaska',
+    'AZ': 'Arizona',
+    'AR': 'Arkansas',
+    'CA': 'California',
+    'CO': 'Colorado',
+    'CT': 'Connecticut',
+    'DE': 'Delaware',
+    'FL': 'Florida',
+    'GA': 'Georgia',
+    'HI': 'Hawaii',
+    'ID': 'Idaho',
+    'IL': 'Illinois',
+    'IN': 'Indiana',
+    'IA': 'Iowa',
+    'KS': 'Kansas',
+    'KY': 'Kentucky',
+    'LA': 'Louisiana',
+    'ME': 'Maine',
+    'MD': 'Maryland',
+    'MA': 'Massachusetts',
+    'MI': 'Michigan',
+    'MN': 'Minnesota',
+    'MS': 'Mississippi',
+    'MO': 'Missouri',
+    'MT': 'Montana',
+    'NE': 'Nebraska',
+    'NV': 'Nevada',
+    'NH': 'New Hampshire',
+    'NJ': 'New Jersey',
+    'NM': 'New Mexico',
+    'NY': 'New York',
+    'NC': 'North Carolina',
+    'ND': 'North Dakota',
+    'OH': 'Ohio',
+    'OK': 'Oklahoma',
+    'OR': 'Oregon',
+    'PA': 'Pennsylvania',
+    'RI': 'Rhode Island',
+    'SC': 'South Carolina',
+    'SD': 'South Dakota',
+    'TN': 'Tennessee',
+    'TX': 'Texas',
+    'UT': 'Utah',
+    'VT': 'Vermont',
+    'VA': 'Virginia',
+    'WA': 'Washington',
+    'WV': 'West Virginia',
+    'WI': 'Wisconsin',
+    'WY': 'Wyoming'
+}
 
 class StreetAddress(collections.namedtuple('StreetAddress',
                     'house_number street city state zip_code raw')):
@@ -225,95 +273,117 @@ class StreetAddress(collections.namedtuple('StreetAddress',
             raw = raw
         )
 
-atexit.register(lambda: print("atexit called"))
-raise Exception("something happened")
+def process_csv(ifd, ofd, log = None):
+    icsv = csv.DictReader(ifd, delimiter = '|', quotechar = '\'', quoting = csv.QUOTE_ALL, strict = True)
 
+    ocsv = None
 
-if len(sys.argv) > 1:
-    ifd = open(sys.argv[1], "r")
-    atexit.register(ifd.close)
-else:
-    ifd = sys.stdin
-
-if len(sys.argv) > 2:
-    ofd = open(sys.argv[2], "w")
-    atexit.register(ofd.close)
-else:
-    ofd = sys.stdout
-
-all_tweets          = []
-
-tweets_w_addrs      = []
-tweets_w_re_addrs   = []
-tweets_w_nlp_addrs  = []
-
-tweets_w_st_addrs   = []
-tweets_w_city_addrs = []
-
-tweets_w_coords     = []
-tweets_w_city_area  = []
-
-with open(sys.argv[1], "r") as fd:
-    for tweet in fd.read().split('\t'):
-        tweet = tweet.split('~+&$!sep779++')
-
-        if tweet == ['']:
-            continue
-
-        all_tweets.append(tweet)
-
-        text = tweet[0]
-        link = tweet[2]
-
-        addr_re = StreetAddress.re(text)
-        if addr_re is not None:
-            tweet_copy = tweet.copy()
-            tweet_copy.append(addr_re)
-
-            tweets_w_re_addrs.append(tweet_copy)
-
-        addr_nlp = StreetAddress.nlp(text)
-        if addr_nlp is not None:
-            tweet_copy = tweet.copy()
-            tweet_copy.append(addr_nlp)
-
-            tweets_w_nlp_addrs.append(tweet_copy)
-
-        addr = addr_nlp if addr_nlp is not None else addr_re
-
-        if addr is not None:
-            tweet_copy = tweet.copy()
-            tweet_copy.append(addr)
-
-            print(str(addr) + " ~= \"" + text + "\"")
-
-            tweets_w_addrs.append(tweet_copy.copy())
-
-            if addr.street is not None:
-                tweets_w_st_addrs.append(tweet_copy)
-
-            elif addr.city is not None:
-                tweets_w_city_addrs.append(tweet_copy)
-
-def format(arr):
-    return (len(arr), 100 * len(arr) / len(all_tweets))
-
-if "__file__" == __main__:
     with GeolocationDB.open("geolocations.dat") as geodb:
-        with CityAreaDB.open("geolocations.dat") as areadb:
-    for tweet in tweets_w_addrs:
-        text = tweet[0]
-        addr = tweet[-1]
+        with CityAreaDB.open("cityareas.dat") as areadb:
+            for irow in icsv:
+                if ocsv is None:
+                    fieldnames = icsv.fieldnames + ["address", "latitude", "longitude", "latlongerr"]
+                    ocsv = csv.DictWriter(ofd, delimiter = '|', fieldnames = fieldnames)
+                    ocsv.writeheader()
 
-        try:
-            coord = db.get_coords(**addr.dict())
-        except GeopyError:
-            pass
+                orow = dict(irow)
 
-        if coord is not None:
-            print(str(coord) + " ~= " + str(addr))
+                orow["address"]    = None
+                orow["latitude"]   = None
+                orow["longitude"]  = None
+                orow["latlongerr"] = None
 
-            tweet_copy = tweet.copy()
-            tweet_copy.append(coord)
+                addr = StreetAddress.nlp(irow["text"])
+                if addr is None:
+                    addr = StreetAddress.re(irow["text"])
 
-            tweets_w_coords.append(tweet_copy)
+                if addr is not None:
+                    orow["address"] = str(addr)
+
+                    query = {"country": "USA"}
+
+                    if addr.street is not None:
+                        query["street"] = addr.house_number + " " + addr.street
+
+                    if addr.city is not None:
+                        query["city"] = addr.city
+
+                    if addr.state is not None:
+                        query["state"] = STATE_INITIALS[addr.state]
+
+                    if addr.zip_code is not None:
+                        query["postalcode"] = addr.zip_code
+
+                    coord = geodb.get_coords(**query)
+                    if coord is not None:
+                        orow["latitude"], orow["longitude"] = coord
+
+                        if addr.street is not None:
+                            # If a street address is specified, assume the
+                            # coordinates are 100% precise
+                            orow["latlongerr"] = 0.0
+                        else:
+                            area = areadb.get_area(addr.city, STATE_INITIALS[addr.state])
+
+                            if area is not None:
+                                # Calculate the radius of the city from its
+                                # area. For simplicity, assume a perfectly
+                                # circular city area
+                                orow["latlongerr"] = math.sqrt(area / math.pi)
+
+                if log is not None and orow["address"] is not None:
+                    log.write("%s -> %s: \"%s\" matched in tweet \"%s\"\n" % (ifd.name, ofd.name, orow["text"], orow["address"]))
+
+                    if orow["latitude"] is not None and orow["longitude"] is not None:
+                        log.write("%s -> %s: \"%s\" mapped to coordinates (%f, %f)" % (ifd.name, ofd.name, orow["address"], orow["latitude"], orow["longitude"]))
+
+                        if orow["latlongerr"] is not None:
+                            log.write(" within a %f km radius\n" % orow["latlongerr"])
+                        else:
+                            log.write(" within an unknown radius\n")
+
+                ocsv.writerow(orow)
+
+LOGNAME = "postal_regex.log"
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and os.path.isdir(sys.argv[1]):
+        for dirpath, dirnames, filenames in os.walk(sys.argv[1]):
+            for filename in filenames:
+                filetype = filename[filename.rfind('.'):]
+
+                # TODO: process regular CSV files
+                if filetype != ".txt":
+                    continue
+
+                ifname = filename
+                ofname = filename[:filename.rfind('.')] + "_W_COORDS.txt"
+
+                with open(LOGNAME, "a") as log:
+                    try:
+                        with open(ifname, "r", newline = '') as ifd:
+                            with open(ofname, "w", newline = '') as ofd:
+                                process_csv(ifd, ofd)
+                    except Exception as err:
+                        log.write("%s -> %s: Uncaught exception of type %s\n" % (ifd.name, ofd.name, str(type(err))))
+
+                        for line in traceback.format_exc().splitlines():
+                            log.write("%s -> %s: %s\n" % (ifd.name, ofd.name, line))
+    else:
+        with open(LOGNAME, "a") as log:
+            try:
+                ifd = open(sys.argv[1], "r", newline = '') if len(sys.argv) > 1 else sys.stdin
+                ofd = open(sys.argv[2], "w", newline = '') if len(sys.argv) > 2 else sys.stdout
+
+                print(ifd.name)
+                print(ofd.name)
+
+                process_csv(ifd, ofd, log)
+            except Exception as err:
+                log.write("%s -> %s: Uncaught exception of type %s\n" % (ifd.name, ofd.name, str(type(err))))
+
+                for line in traceback.format_exc().splitlines():
+                    log.write("%s -> %s: %s\n" % (ifd.name, ofd.name, line))
+            finally:
+                ifd.close()
+                ofd.close()

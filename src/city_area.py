@@ -58,24 +58,6 @@ class DBMixin:
         return pickle.dumps(self.cache)
 
 class CityAreaDB(DBMixin):
-    STATE_INITIAL_TO_NAME = {
-        'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas',
-        'CA': 'California', 'CO': 'Colorado', 'CT': 'Connecticut',
-        'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia', 'HI': 'Hawaii',
-        'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa',
-        'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine',
-        'MD': 'Maryland', 'MA': 'Massachusetts', 'MI': 'Michigan',
-        'MN': 'Minnesota', 'MS': 'Mississippi', 'MO': 'Missouri',
-        'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada',
-        'NH': 'New Hampshire', 'NJ': 'New Jersey', 'NM': 'New Mexico',
-        'NY': 'New York', 'NC': 'North Carolina', 'ND': 'North Dakota',
-        'OH': 'Ohio', 'OK': 'Oklahoma', 'OR': 'Oregon', 'PA': 'Pennsylvania',
-        'RI': 'Rhode Island', 'SC': 'South Carolina', 'SD': 'South Dakota',
-        'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 'VT': 'Vermont',
-        'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia',
-        'WI': 'Wisconsin', 'WY': 'Wyoming'
-    }
-
     TAGS_REGEX = re.compile(r'\<.+?\>')
     SQMI_REGEX = re.compile(r'Land area:\s*(?P<sqmi>[0-9\.]+)\s*square miles\.')
 
@@ -83,10 +65,14 @@ class CityAreaDB(DBMixin):
         super().__init__()
 
     def get_area(self, city, state):
-        key = (city, CityAreaDB.STATE_INITIAL_TO_NAME[state])
+        key = (city, state)
 
         if key not in self.cache:
-            htm = parse("http://www.city-data.com/city/%s-%s.html" % key)
+            try:
+                htm = parse("http://www.city-data.com/city/%s-%s.html" % key)
+            except OSError:
+                return None
+
             time.sleep(1)
 
             for tag in htm.xpath('//section[@id="population-density"]'):
