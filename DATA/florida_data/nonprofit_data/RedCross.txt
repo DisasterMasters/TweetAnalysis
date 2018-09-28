@@ -1,4 +1,3 @@
-'username'|'date'|'retweets'|'favorites'|'text'|'is_retweet'|'ID'|'permalink'
 RedCross|2017-09-09 18:02:08|558|619|# Irma : We are providing safe refuge & mobilizing supplies. How to get & give help:  http://rdcrss.org/2gT7Mh8    (Esp:  http://rdcrss.org/2gT7MOa   ) pic.twitter.com/MQlMo7BWnP|false|906638882761998336|/RedCross/status/906638882761998336
 RedCross|2017-09-14 11:34:27|230|367|~6,000 Red Cross workers & 276 emergency response vehicles are on the ground, helping thousands of people affected by #Harvey  & #Irma .  pic.twitter.com/wdnBqFnkNB|false|908353257688502273|/RedCross/status/908353257688502273
 RedCross|2017-10-25 16:54:45|105|109|1 month after #Hurricane  #Irma , learn how your generous donations have supported relief & recovery efforts so far:  http://rdcrss.org/2h7WLG3   pic.twitter.com/tBIQxpKu5O|false|923291763841826816|/RedCross/status/923291763841826816
