@@ -138,8 +138,15 @@ STATE_INITIALS = {
     'WY': 'Wyoming'
 }
 
-class StreetAddress(collections.namedtuple('StreetAddress',
-                    'house_number street city state zip_code raw')):
+class CSV_SCRAPY(csv.Dialect):
+    delimiter = "|"
+    quotechar = "'"
+    doublequote = True
+    skipinitialspace = False
+    lineterminator = "\n"
+    quoting = csv.QUOTE_MINIMAL
+
+class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street city state zip_code raw')):
     LINE1_REGEX = re.compile(r'(?P<house_number>[0-9]{1,10}) (?P<street>([A-Z][a-z]* ?)+? (?P<street_suffix>[A-Z][a-z]{1,9}))\.?( [NSEW]{1,2})?')
     LINE2_REGEX = re.compile(r'(?P<city>([A-Z][a-z]+ ?)+?),? (?P<state>[A-Z]{2})( (?P<zip_code>[0-9]{5}(-[0-9]{4})?))?')
 
@@ -194,11 +201,7 @@ class StreetAddress(collections.namedtuple('StreetAddress',
 
         '''
 
-        try:
-            word_forest = [StreetAddress.NLP_PARSER.parse(nltk.pos_tag(StreetAddress.NLP_TOKENIZER.tokenize(sentence))) for sentence in nltk.sent_tokenize(text)]
-        except UnicodeDecodeError:
-            return None
-
+        word_forest = [StreetAddress.NLP_PARSER.parse(nltk.pos_tag(StreetAddress.NLP_TOKENIZER.tokenize(sentence))) for sentence in nltk.sent_tokenize(text)]
         word_forest.reverse()
 
         while word_forest:
@@ -274,109 +277,86 @@ class StreetAddress(collections.namedtuple('StreetAddress',
             raw = raw
         )
 
-def process_csv(ifd, ofd, log = None):
-    icsv = csv.DictReader(ifd, delimiter = '|', quotechar = '\'', quoting = csv.QUOTE_ALL, strict = True)
+GEODB  = GeolocationDB.open("geolocations.dat")
+AREADB = CityAreaDB.open("cityareas.dat")
+
+def process_csv(ifd, ofd, log = sys.stderr):
+    icsv = csv.DictReader(ifd, dialect = CSV_SCRAPY, quoting = csv.QUOTE_ALL)
 
     ocsv = None
 
-    with GeolocationDB.open("geolocations.dat") as geodb:
-        with CityAreaDB.open("cityareas.dat") as areadb:
-            for irow in itertools.chain((next(),), icsv):
-                if ocsv is None:
-                    fieldnames = icsv.fieldnames + ["address", "latitude", "longitude", "latlongerr"]
-                    ocsv = csv.DictWriter(ofd, delimiter = "|", lineterminator = "\n", fieldnames = fieldnames)
-                    ocsv.writeheader()
+    for irow in icsv:
+        if ocsv is None:
+            ocsv = csv.DictWriter(ofd, dialect = CSV_SCRAPY, fieldnames = icsv.fieldnames + ["address", "latitude", "longitude", "latlongerr"])
+            ocsv.writeheader()
 
-                orow = dict(irow)
+        orow = dict(irow)
 
-                orow["address"]    = None
-                orow["latitude"]   = None
-                orow["longitude"]  = None
-                orow["latlongerr"] = None
+        orow["address"]    = None
+        orow["latitude"]   = None
+        orow["longitude"]  = None
+        orow["latlongerr"] = None
 
-                addr = StreetAddress.nlp(irow["text"])
-                if addr is None:
-                    addr = StreetAddress.re(irow["text"])
+        addr = StreetAddress.nlp(irow["text"])
+        if addr is None:
+            addr = StreetAddress.re(irow["text"])
 
-                if addr is not None:
-                    orow["address"] = str(addr)
+        if addr is not None:
+            orow["address"] = str(addr)
 
-                    query = {"country": "USA"}
+            query = {"country": "USA"}
 
-                    if addr.street is not None:
-                        query["street"] = addr.house_number + " " + addr.street
+            if addr.street is not None:
+                query["street"] = addr.house_number + " " + addr.street
 
-                    if addr.city is not None:
-                        query["city"] = addr.city
+            if addr.city is not None:
+                query["city"] = addr.city
 
-                    if addr.state is not None:
-                        query["state"] = STATE_INITIALS[addr.state]
+            if addr.state is not None:
+                query["state"] = STATE_INITIALS[addr.state]
 
-                    if addr.zip_code is not None:
-                        query["postalcode"] = addr.zip_code
+            if addr.zip_code is not None:
+                query["postalcode"] = addr.zip_code
 
-                    coord = geodb.get_coords(**query)
-                    if coord is not None:
-                        orow["latitude"], orow["longitude"] = coord
+            coord = GEODB.get(**query)
+            if coord is not None:
+                orow["latitude"], orow["longitude"] = coord
 
-                        if addr.street is not None:
-                            # If a street address is specified, assume the
-                            # coordinates are 100% precise
-                            orow["latlongerr"] = 0.0
-                        else:
-                            area = areadb.get_area(addr.city, STATE_INITIALS[addr.state])
+                if addr.street is not None:
+                    # If a street address is specified, assume the
+                    # coordinates are 100% precise
+                    orow["latlongerr"] = 0.0
+                else:
+                    area = AREADB.get(addr.city, STATE_INITIALS[addr.state])
 
-                            if area is not None:
-                                # Calculate the radius of the city from its
-                                # area. For simplicity, assume a perfectly
-                                # circular city area
-                                orow["latlongerr"] = math.sqrt(area / math.pi)
+                    if area is not None:
+                        # Calculate the radius of the city from its
+                        # area. For simplicity, assume a perfectly
+                        # circular city area
+                        orow["latlongerr"] = math.sqrt(area / math.pi)
 
-                if log is not None and orow["address"] is not None:
-                    log.write("%s -> %s: \"%s\" matched in tweet \"%s\"\n" % (ifd.name, ofd.name, orow["text"], orow["address"]))
+        if log is not None and orow["address"] is not None:
+            log.write("%s -> %s: \"%s\" matched in tweet \"%s\"\n" % (ifd.name, ofd.name, orow["text"], orow["address"]))
 
-                    if orow["latitude"] is not None and orow["longitude"] is not None:
-                        log.write("%s -> %s: \"%s\" mapped to coordinates (%f, %f)" % (ifd.name, ofd.name, orow["address"], orow["latitude"], orow["longitude"]))
+            if orow["latitude"] is not None and orow["longitude"] is not None:
+                log.write("%s -> %s: \"%s\" mapped to coordinates (%f, %f)" % (ifd.name, ofd.name, orow["address"], orow["latitude"], orow["longitude"]))
 
-                        if orow["latlongerr"] is not None:
-                            log.write(" within a %f km radius\n" % orow["latlongerr"])
-                        else:
-                            log.write(" within an unknown radius\n")
+                if orow["latlongerr"] is not None:
+                    log.write(" within a %f km radius\n" % orow["latlongerr"])
+                else:
+                    log.write(" within an unknown radius\n")
 
-                ocsv.writerow(orow)
+        ocsv.writerow(orow)
 
 LOGNAME = "postal_regex.log"
 
-csv.register_dialect(
-    "ivbar",
-    csv.excel,
-    delimiter = "|",
-    quotechar = "'",
-    quoting = csv.QUOTE_ALL,
-    strict = True
-)
-
-csv.register_dialect(
-    "ovbar",
-    csv.unix,
-    delimiter = "|",
-    quotechar = "'",
-    quoting = csv.QUOTE_MINIMAL,
-    strict = True
-)
-
 if __name__ == "__main__":
-
     if len(sys.argv) > 1 and os.path.isdir(sys.argv[1]):
         for dirpath, dirnames, filenames in os.walk(sys.argv[1]):
             for ifname in filenames:
                 rdot = ifname.rfind('.')
 
-                if ifname[rdot:] == ".txt":
-                    # Assume excel_vbar format
-                elif ifname[rdot:] == ".csv":
-                    # Assume excel_vbar format
-                else
+                if ifname[rdot:] != ".txt":
                     continue
 
                 ofname = ifname[:rdot] + "_W_LOCATION_TAGS" + ifname[rdot:]
@@ -395,22 +375,22 @@ if __name__ == "__main__":
                         log.flush()
     else:
         try:
-            log = open(LOGNAME, "a")
+            log = sys.stderr#open(LOGNAME, "a")
             ifd = open(sys.argv[1], "r", newline = '') if len(sys.argv) > 1 else sys.stdin
             ofd = open(sys.argv[2], "w", newline = '') if len(sys.argv) > 2 else sys.stdout
 
-            print(ifd.name)
-            print(ofd.name)
-
             process_csv(ifd, ofd, log)
-        except Exception as err:
-            log.write("%s -> %s: Uncaught exception of type %s\n" % (ifd.name, ofd.name, str(type(err))))
+#        except Exception as err:
+#            log.write("%s -> %s: Uncaught exception of type %s\n" % (ifd.name, ofd.name, str(type(err))))
 
-            for line in traceback.format_exc().splitlines():
-                log.write("%s -> %s: %s\n" % (ifd.name, ofd.name, line))
+#            for line in traceback.format_exc().splitlines():
+#                log.write("%s -> %s: %s\n" % (ifd.name, ofd.name, line))
 
-            log.flush()
+#            log.flush()
         finally:
-            log.close()
+            #log.close()
             ifd.close()
             ofd.close()
+
+GEODB.close()
+AREADB.close()
