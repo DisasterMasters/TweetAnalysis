@@ -1,6 +1,3 @@
-# Uncomment for Python 2
-#from __future__ import *
-
 import abc
 import time
 import pickle
