@@ -1,17 +1,20 @@
 import csv
 import collections
+import datetime
 import itertools
 import math
+import multiprocessing as mp
 import os
 import re
 import sys
-import time
+import traceback
 
 #import tweepy
 import nltk
 
 from db import CityAreaDB, GeolocationDB
 from match import StreetAddress, STATE_INITIALS
+from sync import Channel
 
 class CSV_SCRAPY(csv.Dialect):
     delimiter = "|"
@@ -24,8 +27,42 @@ class CSV_SCRAPY(csv.Dialect):
 GEODB  = GeolocationDB.open("geolocations.dat")
 AREADB = CityAreaDB.open("cityareas.dat")
 
-def process_csv(ifd, ofd, log = sys.stderr):
+# This might be useful later if we use stderr for something
+'''
+def logfile_loop(logname, chan):
+    logfd = sys.stderr if logname is None else open(logname, "a")
+
+    def log_printf(string, *args):
+        logfd.write("[%s] %s: %s\n" % (
+                    datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    pname,
+                    string % args
+        ))
+
+    while True:
+        msg = chan.recv()
+
+        if not chan or msg is None:
+            break
+
+        pname, data = msg
+
+        if isinstance(msg, Exception):
+            log_printf("Fatal %s exception raised, terminating", str(type(msg)))
+        else:
+            log_printf(str(msg))
+
+    if logname is not None:
+        logfd.close()
+'''
+
+def process(ifname, ofname):
+    ifd = open(ifname, "r", newline = "")
+    ofd = open(ofname, "w", newline = "")
+
     icsv = csv.DictReader(ifd, dialect = CSV_SCRAPY, quoting = csv.QUOTE_ALL)
+
+    pname = ifd.name + " -> " + ofd.name
 
     ocsv = None
 
@@ -79,55 +116,39 @@ def process_csv(ifd, ofd, log = sys.stderr):
                         # circular city area
                         orow["latlongerr"] = math.sqrt(area / math.pi)
 
-        if log is not None and orow["address"] is not None:
-            log.write("%s -> %s: \"%s\" matched in tweet \"%s\"\n" % (ifd.name, ofd.name, orow["text"], orow["address"]))
-
-            if orow["latitude"] is not None and orow["longitude"] is not None:
-                log.write("%s -> %s: \"%s\" mapped to coordinates (%f, %f)" % (ifd.name, ofd.name, orow["address"], orow["latitude"], orow["longitude"]))
-
-                if orow["latlongerr"] is not None:
-                    log.write(" within a %f km radius\n" % orow["latlongerr"])
-                else:
-                    log.write(" within an unknown radius\n")
-
         ocsv.writerow(orow)
 
-LOGNAME = "postal_regex.log"
+        if orow["latitude"] is not None:
+            sys.stderr.write("Mapped tweet %s to coordinates (%f, %f)\n" % (
+                orow["ID"],
+                orow["latitude"],
+                orow["longitude"]
+            ))
+
+        ifd.close()
+        ofd.close()
+
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and os.path.isdir(sys.argv[1]):
-        for dirpath, dirnames, filenames in os.walk(sys.argv[1]):
-            for ifname in filenames:
+    if len(sys.argv) < 2:
+        print("Usage:", sys.argv[0], "[DATA dir]", file = sys.stderr)
+        exit(-1)
+    elif not os.path.isdir(sys.argv[1]):
+        print("Usage:", sys.argv[0], "[DATA dir]", file = sys.stderr)
+        exit(-1)
+
+    with mp.Pool(processes = 4) as pool:
+        for dirpath, _, filenames in os.walk(sys.argv[1]):
+            for filename in filenames:
+                ifname = os.path.join(dirpath, filename)
                 rdot = ifname.rfind('.')
 
-                if ifname[rdot:] != ".txt":
+                if ifname[rdot:] != ".txt" or "(with location tags)" in ifname:
                     continue
 
-                ofname = ifname[:rdot] + "_W_LOCATION_TAGS" + ifname[rdot:]
+                ofname = ifname[:rdot] + " (with location tags)" + ifname[rdot:]
 
-                with open(LOGNAME, "a") as log:
-                    try:
-                        with open(ifname, "r", newline = '') as ifd:
-                            with open(ofname, "w", newline = '') as ofd:
-                                process_csv(ifd, ofd)
-                    except Exception as err:
-                        log.write("%s -> %s: Uncaught exception of type %s\n" % (ifd.name, ofd.name, str(type(err))))
-
-                        for line in traceback.format_exc().splitlines():
-                            log.write("%s -> %s: %s\n" % (ifd.name, ofd.name, line))
-
-                        log.flush()
-    else:
-        try:
-            ifd = open(sys.argv[1], "r", newline = '') if len(sys.argv) > 1 else sys.stdin
-            ofd = open(sys.argv[2], "w", newline = '') if len(sys.argv) > 2 else sys.stdout
-
-            process_csv(ifd, ofd)
-        finally:
-            if len(sys.argv) > 1:
-                ifd.close()
-            if len(sys.argv) > 2:
-                ofd.close()
+                pool.apply_async(process, (ifname, ofname))
 
 GEODB.close()
 AREADB.close()
