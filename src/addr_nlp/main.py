@@ -125,8 +125,8 @@ def process(ifname, ofname):
                 orow["longitude"]
             ))
 
-        ifd.close()
-        ofd.close()
+    ifd.close()
+    ofd.close()
 
 
 if __name__ == "__main__":
