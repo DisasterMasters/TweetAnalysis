@@ -159,21 +159,6 @@ class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street
 
         return addrstr
 
-    def dict(self):
-        ret = {"country": "USA"}
-
-        if self.street is not None:
-            ret["street"] = self.house_number + " " + self.street
-
-        if self.city is not None:
-            ret["city"] = self.city
-            ret["state"] = self.state
-
-            if self.zip_code is not None:
-                ret["postalcode"] = self.zip_code
-
-        return ret
-
     @staticmethod
     def nlp(text):
         '''

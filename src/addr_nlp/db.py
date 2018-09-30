@@ -98,6 +98,8 @@ class DB(abc.ABC):
                 else:
                     self.cache[k] = v
 
+                self.rwlock.demote()
+
             return self.cache[k]
         finally:
             self.rwlock.release()

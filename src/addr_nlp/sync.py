@@ -1,4 +1,4 @@
-import multiprocessing as mp
+import threading
 
 # Shamelessly stolen from
 # <https://blog.majid.info/a-reader-writer-lock-for-python/>
@@ -11,9 +11,9 @@ prevent write starvation.
     def __init__(self):
         self.readers = 0
         self.writers = 0
-        self.mut = mp.RLock()
-        self.rcond = mp.Condition(self.mut)
-        self.wcond = mp.Condition(self.mut)
+        self.mut = threading.RLock()
+        self.rcond = threading.Condition(self.mut)
+        self.wcond = threading.Condition(self.mut)
     def acquire_read(self):
         """Acquire a read lock. Several threads can hold this typeof lock.
 It is exclusive with write locks."""
@@ -70,12 +70,12 @@ only when no read locks are also held."""
 
 class Channel:
     def __init__(self):
-        self.mmut = mp.RLock()
-        self.rmut = mp.RLock()
-        self.wmut = mp.RLock()
+        self.mmut = threading.RLock()
+        self.rmut = threading.Lock()
+        self.wmut = threading.Lock()
 
-        self.rcond = mp.Condition(self.mmut)
-        self.wcond = mp.Condition(self.mmut)
+        self.rcond = threading.Condition(self.mmut)
+        self.wcond = threading.Condition(self.mmut)
 
         self.readers = 0
         self.writers = 0

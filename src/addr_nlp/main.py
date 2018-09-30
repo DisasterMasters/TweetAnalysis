@@ -3,7 +3,7 @@ import collections
 import datetime
 import itertools
 import math
-import multiprocessing as mp
+import threading
 import os
 import re
 import sys
@@ -63,6 +63,7 @@ def process(ifname, ofname):
     icsv = csv.DictReader(ifd, dialect = CSV_SCRAPY, quoting = csv.QUOTE_ALL)
 
     pname = ifd.name + " -> " + ofd.name
+    print(pname, file = sys.stderr)
 
     ocsv = None
 
@@ -116,18 +117,18 @@ def process(ifname, ofname):
                         # circular city area
                         orow["latlongerr"] = math.sqrt(area / math.pi)
 
-        ocsv.writerow(orow)
+        #Prevent DictWriter from complaining about extra fields
+        ocsv.writerow({k: v for k, v in orow.items() if k in ocsv.fieldnames})
 
         if orow["latitude"] is not None:
-            sys.stderr.write("Mapped tweet %s to coordinates (%f, %f)\n" % (
+            print("Mapped tweet %s to coordinates (%f, %f)" % (
                 orow["ID"],
                 orow["latitude"],
                 orow["longitude"]
-            ))
+            ), file = sys.stderr)
 
     ifd.close()
     ofd.close()
-
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -137,7 +138,8 @@ if __name__ == "__main__":
         print("Usage:", sys.argv[0], "[DATA dir]", file = sys.stderr)
         exit(-1)
 
-    #with mp.Pool(processes = 4) as pool:
+    pool = []
+
     for dirpath, _, filenames in os.walk(sys.argv[1]):
         for filename in filenames:
             ifname = os.path.join(dirpath, filename)
@@ -148,11 +150,16 @@ if __name__ == "__main__":
 
             ofname = ifname[:rdot] + " (with location tags)" + ifname[rdot:]
 
-            process(ifname, ofname)
-                #pool.apply_async(process, (ifname, ofname))
+            # Doesn't actually do any multithreading, TODO
+            pool.append(threading.Thread(
+                target = process,
+                args = (ifname, ofname)
+            ))
 
-        #pool.close()
-        #pool.join()
+            pool[-1].run()
+
+    for thread in pool:
+        thread.join()
 
 GEODB.close()
 AREADB.close()
