@@ -137,21 +137,22 @@ if __name__ == "__main__":
         print("Usage:", sys.argv[0], "[DATA dir]", file = sys.stderr)
         exit(-1)
 
-    with mp.Pool(processes = 4) as pool:
-        for dirpath, _, filenames in os.walk(sys.argv[1]):
-            for filename in filenames:
-                ifname = os.path.join(dirpath, filename)
-                rdot = ifname.rfind('.')
+    #with mp.Pool(processes = 4) as pool:
+    for dirpath, _, filenames in os.walk(sys.argv[1]):
+        for filename in filenames:
+            ifname = os.path.join(dirpath, filename)
+            rdot = ifname.rfind('.')
 
-                if ifname[rdot:] != ".txt" or "(with location tags)" in ifname:
-                    continue
+            if ifname[rdot:] != ".txt" or "(with location tags)" in ifname:
+                continue
 
-                ofname = ifname[:rdot] + " (with location tags)" + ifname[rdot:]
+            ofname = ifname[:rdot] + " (with location tags)" + ifname[rdot:]
 
-                pool.apply_async(process, (ifname, ofname))
+            process(ifname, ofname)
+                #pool.apply_async(process, (ifname, ofname))
 
-        pool.close()
-        pool.join()
+        #pool.close()
+        #pool.join()
 
 GEODB.close()
 AREADB.close()
