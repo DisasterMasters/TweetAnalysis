@@ -150,5 +150,8 @@ if __name__ == "__main__":
 
                 pool.apply_async(process, (ifname, ofname))
 
+        pool.close()
+        pool.join()
+
 GEODB.close()
 AREADB.close()
