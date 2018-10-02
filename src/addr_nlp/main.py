@@ -117,7 +117,7 @@ def process(ifname, ofname):
                         # circular city area
                         orow["latlongerr"] = math.sqrt(area / math.pi)
 
-        #Prevent DictWriter from complaining about extra fields
+        # Prevent DictWriter from complaining about extra fields
         ocsv.writerow({k: v for k, v in orow.items() if k in ocsv.fieldnames})
 
         if orow["latitude"] is not None:
@@ -156,7 +156,7 @@ if __name__ == "__main__":
                 args = (ifname, ofname)
             ))
 
-            pool[-1].run()
+            pool[-1].start()
 
     for thread in pool:
         thread.join()
