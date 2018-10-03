@@ -1,3 +1,4 @@
+username|date|retweets|favorites|text|geo|mentions|hashtags||permalink
 KeysEnergy|2017-09-27 12:15|3|1|Big Thank You to the hard working men & women @KeysEnergy Serv (KEYS), working day & night to get power back on in #FL #Keys . #DAFN #hmrd pic.twitter.com/obAwyojKX3||@KeysEnergy|#FL #Keys #DAFN #hmrd|9.13074565605097E+017|https://twitter.com/HumanityRoad/status/913074565605097473
 KeysEnergy|2017-09-27 12:15|0|0|Big Thank You to the hard working men & women @KeysEnergy Serv (KEYS), working day & night to get power back on in #FL #Keys . #DAFN #hmrd pic.twitter.com/AkmBUe1jyK||@KeysEnergy|#FL #Keys #DAFN #hmrd|9.13074527214727E+017|https://twitter.com/FoxRn1/status/913074527214727168
 KeysEnergy|2017-09-26 23:11|0|0|Just curios if Sugarloaf Koa has their power restored?||||9.12877295022559E+017|https://twitter.com/KimAllboyz/status/912877295022559232

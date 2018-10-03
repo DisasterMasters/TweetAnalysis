@@ -1,3 +1,4 @@
+username|date|retweets|favorites|text|geo|mentions|hashtags||permalink
 NewsfromJEA|2017-09-27 13:30|0|0|Hi @NewsfromJEA I am having an issue with the bill pay link!It says the URL is rejected every time!||@NewsfromJEA||9.1309360517845E+017|https://twitter.com/Nautanki_chhori/status/913093605178449921
 NewsfromJEA|2017-09-27 12:59|0|0|Someone answered the phone after 45 minutes. Thanks||||9.13085706104427E+017|https://twitter.com/Heaven0174/status/913085706104426497
 NewsfromJEA|2017-09-27 11:35|0|0|@NewsfromJEA Is anyone available at this time. I sent a message.||@NewsfromJEA||9.13064488500384E+017|https://twitter.com/Heaven0174/status/913064488500383744

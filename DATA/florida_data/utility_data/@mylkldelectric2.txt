@@ -1,3 +1,4 @@
+username|date|retweets|favorites|text|geo|mentions|hashtags||permalink
 mylkldelectric|2017-09-27 06:08|0|0|@mylkldelectric power. Just went out in North Lakeland by Socrum Loop.||@mylkldelectric||9.12982333736792E+017|https://twitter.com/mcx1979/status/912982333736792064
 mylkldelectric|2017-09-26 16:16|0|0|Hurricane Irma Update: Our office is now open. A huge THANK YOU to @mylkldelectric !||@mylkldelectric||9.12772978974368E+017|https://twitter.com/Eventrics/status/912772978974367745
 mylkldelectric|2017-09-24 01:36|0|0|@mylkldelectric We keep hearing booms like transformers blowing.||@mylkldelectric||9.11826588051935E+017|https://twitter.com/HollandCp/status/911826588051935232

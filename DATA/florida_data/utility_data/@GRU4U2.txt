@@ -1,3 +1,4 @@
+username|date|retweets|favorites|text|geo|mentions|hashtags||permalink
 GRU4U|2017-09-27 14:51|0|0|Lights been paid since yesterday no power restored yet called customer service asked for the manager email address @GRU4U||@GRU4U||9.13113960215384E+017|https://twitter.com/Maple352/status/913113960215384064
 GRU4U|2017-09-27 14:21|0|0|@GRU4U I can't get through to a customer service rep. I've tried 3 times today and keep being told it's too busy.||@GRU4U||9.13106213314888E+017|https://twitter.com/Noolish/status/913106213314887680
 GRU4U|2017-09-26 21:09|0|0|I give up! I don't understand your company. Electricity is 2 cool to complain about paying for no yard trash service.||||9.12846746476261E+017|https://twitter.com/kmel69/status/912846746476261376

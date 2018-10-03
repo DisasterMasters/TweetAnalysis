@@ -1,3 +1,4 @@
+username|date|retweets|favorites|text|geo|mentions|hashtags||permalink
 OUCreliableone|2017-09-26 14:05|0|1|. @OUCreliableone was a beacon of hope for many #Orlando residents. Discover why: http:// bit.ly/2hjHVPY||@OUCreliableone|#Orlando|9.12739872246522E+017|https://twitter.com/AppltnCre8ve/status/912739872246521857
 OUCreliableone|2017-09-26 13:20|0|0|Thank you||||9.1272853419561E+017|https://twitter.com/MitchellGabe/status/912728534195609600
 OUCreliableone|2017-09-26 13:19|0|0|Your balance will be adjusted at time of billing.||||9.12728271002972E+017|https://twitter.com/OUCreliableone/status/912728271002972160

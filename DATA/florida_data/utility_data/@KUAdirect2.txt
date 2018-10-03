@@ -1,3 +1,4 @@
+username|date|retweets|favorites|text|geo|mentions|hashtags||permalink
 KUAdirect|2017-09-27 09:41|0|1|@KUAdirect crews have returned home to Kissimmee, concluding 11 days of power restoration work in the aftermath of Hurricane Irma. pic.twitter.com/GNZkinQ856||@KUAdirect||9.13035885691703E+017|https://twitter.com/MayorJoseAlvar2/status/913035885691703297
 KUAdirect|2017-09-26 21:10|0|1|Thank you Kua for the information||||9.12846900264669E+017|https://twitter.com/Gwr0jyj1/status/912846900264669184
 KUAdirect|2017-09-26 16:17|1|2|RT @KUAdirect : An update on power restoration efforts in #PuertoRico and #USVirginIslands . http:// bit.ly/2foVedA #PublicPower #Irma #Maria pic.twitter.com/4MNqrNgtBU|#PuertoRico #USVirginIslands #PublicPower #Irma #Maria|@KUAdirect|#PuertoRico #USVirginIslands #PublicPower #Irma #Maria|9.12773035362537E+017|https://twitter.com/CFXway/status/912773035362537472
