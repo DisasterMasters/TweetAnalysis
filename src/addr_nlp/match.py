@@ -72,7 +72,7 @@ STREET_SUFFIXES = {
     'WAYS', 'WELL', 'WELLS', 'WL', 'WLS', 'WY', 'XING', 'XRD', 'XRDS'
 }
 
-STATE_INITIALS = {
+STATE_MAP = {
     'AL': 'Alabama',
     'AK': 'Alaska',
     'AZ': 'Arizona',
@@ -125,39 +125,66 @@ STATE_INITIALS = {
     'WY': 'Wyoming'
 }
 
+STATE_INVMAP = {v: k for k, v in STATE_MAP.items()}
+STATE_SET = set(STATE_MAP.values())
+
+REGEX_LINE1 = re.compile(r'(?P<house_number>[0-9]{1,10}) (?P<street>([A-Z][a-z]* ?)+? (?P<street_suffix>[A-Z][a-z]{1,9}))\.?( [NSEW]{1,2})?')
+REGEX_LINE2 = re.compile(r'(?P<city>([A-Z][a-z]+ ?)+?),? (?P<state>[A-Z]{2})( (?P<zip_code>[0-9]{5}(-[0-9]{4})?))?')
+
+NLP_TOKENIZER = nltk.RegexpTokenizer(r'''(?x)
+      https?://[^ ]+  # URLs
+    | \@[0-9A-Za-z_]+ # Twitter usernames
+    | \#[0-9A-Za-z_]+ # Twitter hashtags
+    | \w+             # Words/punctuation
+    | [^\w\s]+
+''')
+
+NLP_PARSER = nltk.RegexpParser(r'''
+NP: {<(NNP.?|CD)>+}
+    {<DT|PP\$>?<(JJ|CD)>*<(NN[A-Z]?|CD)>+}
+''')
+
 class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street city state zip_code raw')):
-    LINE1_REGEX = re.compile(r'(?P<house_number>[0-9]{1,10}) (?P<street>([A-Z][a-z]* ?)+? (?P<street_suffix>[A-Z][a-z]{1,9}))\.?( [NSEW]{1,2})?')
-    LINE2_REGEX = re.compile(r'(?P<city>([A-Z][a-z]+ ?)+?),? (?P<state>[A-Z]{2})( (?P<zip_code>[0-9]{5}(-[0-9]{4})?))?')
-
-    NLP_TOKENIZER = nltk.RegexpTokenizer(r'''(?x)
-         https?://[^ ]+  # URLs
-       | \@[0-9A-Za-z_]+ # Twitter usernames
-       | \#[0-9A-Za-z_]+ # Twitter hashtags
-       | \w+             # Words/punctuation
-       | [^\w\s]+
-    ''')
-
-    NLP_PARSER = nltk.RegexpParser(r'''
-    NP: {<(NNP.?|CD)>+}
-        {<DT|PP\$>?<(JJ|CD)>*<(NN[A-Z]?|CD)>+}
-    ''')
-
     def __str__(self):
         addrstr = ""
 
-        if self.street is not None:
-            addrstr += self.house_number + " " + self.street
+        if self.house_number is not None:
+            addrstr += self.house_number
 
-            if self.city is not None:
-                addrstr += ", "
+        if self.street is not None:
+            if addrstr:
+                addrstr += " "
+            addrstr += self.street
 
         if self.city is not None:
-            addrstr += self.city + ", " + self.state
+            if addrstr:
+                addrstr += ", "
+            addrstr += self.city
 
-            if self.zip_code is not None:
-                addrstr += " " + self.zip_code
+        if self.state is not None:
+            if addrstr:
+                addrstr += ", "
+            addrstr += STATE_INVMAP[self.state]
+
+        if self.zip_code is not None:
+            addrstr += " " + self.zip_code
 
         return addrstr
+
+    @staticmethod
+    def statemap(text):
+        for word in text.split():
+            if word in STATE_SET:
+                return StreetAddress(
+                    house_number = None,
+                    street = None,
+                    city = None,
+                    state = word,
+                    zip_code = None,
+                    raw = None #raw = word
+                )
+
+        return None
 
     @staticmethod
     def nlp(text):
@@ -165,7 +192,7 @@ class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street
 
         '''
 
-        word_forest = [StreetAddress.NLP_PARSER.parse(nltk.pos_tag(StreetAddress.NLP_TOKENIZER.tokenize(sentence))) for sentence in nltk.sent_tokenize(text)]
+        word_forest = [NLP_PARSER.parse(nltk.pos_tag(NLP_TOKENIZER.tokenize(sentence))) for sentence in nltk.sent_tokenize(text)]
         word_forest.reverse()
 
         while word_forest:
@@ -183,7 +210,7 @@ class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street
                                 city = None,
                                 state = None,
                                 zip_code = None,
-                                raw = " ".join(leaves)
+                                raw = None #raw = " ".join(leaves)
                             )
                 else:
                     for subtree in tree[::-1]:
@@ -197,8 +224,8 @@ class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street
 
         '''
 
-        line1 = StreetAddress.LINE1_REGEX.search(text)
-        line2 = StreetAddress.LINE2_REGEX.search(text)
+        line1 = REGEX_LINE1.search(text)
+        line2 = REGEX_LINE2.search(text)
 
         house_number = None
         street       = None
@@ -222,9 +249,9 @@ class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street
 
             raw += line2.string[line2.start():line2.end()]
 
-            if line2.group('state') in STATE_INITIALS:
+            if line2.group('state') in STATE_MAP:
                 city     = line2.group('city')
-                state    = line2.group('state')
+                state    = STATE_MAP[line2.group('state')]
                 zip_code = line2.group('zip_code')
             else:
                 line2 = None
@@ -238,5 +265,5 @@ class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street
             city = city,
             state = state,
             zip_code = zip_code,
-            raw = raw
+            raw = None #raw = raw
         )

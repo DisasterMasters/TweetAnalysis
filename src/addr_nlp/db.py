@@ -1,7 +1,8 @@
 import abc
+import base64
+import dbm
 import time
 import pickle
-import urllib.request as urllib
 import re
 
 from lxml.html import parse
@@ -11,23 +12,17 @@ from geopy.exc import GeopyError
 
 from sync import RWLock
 
+def dumps(x):
+    return base64.b64encode(pickle.dumps(x))
+
+def loads(x):
+    return pickle.loads(base64.b64decode(x))
+
 class DB(abc.ABC):
-    @classmethod
-    def open(cls, filename):
-        db = cls()
-        db.filename = filename
-
-        try:
-            with open(filename, "rb") as fd:
-                db.load(fd)
-        except Exception:
-            db.cache.clear()
-
-        return db
-
-    def __init__(self):
+    def __init__(self, filename):
+        super().__init__()
+        self.db = dbm.open(filename, "c")
         self.cache = {}
-        self.filename = None
         self.rwlock = RWLock()
 
     def __enter__(self):
@@ -36,110 +31,139 @@ class DB(abc.ABC):
     def __exit__(self, type, value, tb):
         self.close()
 
-    def load(self, fd):
-        try:
-            self.rwlock.acquire_write()
-
-            self.cache = pickle.load(fd)
-        finally:
-            self.rwlock.release()
-
-    def dump(self, fd):
+    def __contains__(self, key):
         try:
             self.rwlock.acquire_read()
 
-            pickle.dump(self.cache, fd)
+            return key in self.cache or DB.from_db(key) in self.db
         finally:
             self.rwlock.release()
 
-    def loads(self, bs):
-        try:
-            self.rwlock.acquire_write()
-
-            self.cache = pickle.loads(bs)
-        finally:
-            self.rwlock.release()
-
-    def dumps(self):
+    def __getitem__(self, key):
         try:
             self.rwlock.acquire_read()
 
-            return pickle.dumps(self.cache)
+            if key not in self.cache:
+                self.rwlock.promote()
+
+                dbkey = dumps(key)
+
+                if dbkey in self.db:
+                    self.cache[key] = loads(self.db[dbkey])
+                else:
+                    self.cache[key] = self.refresh(key)
+
+            return self.cache[key]
+        finally:
+            self.rwlock.release()
+
+    def __setitem__(self, key, value):
+        try:
+            self.rwlock.acquire_write()
+
+            self.cache[key] = value
+        finally:
+            self.rwlock.release()
+
+    def __delitem__(self, key):
+        try:
+            self.rwlock.acquire_write()
+
+            del self.cache[key]
+            del self.db[dumps(key)]
+        finally:
+            self.rwlock.release()
+
+    def sync(self):
+        try:
+            self.rwlock.acquire_write()
+
+            # Flush cache to db
+            for k, v in self.cache.items():
+                self.db[dumps(k)] = dumps(v)
+
+            try:
+                self.db.sync()
+            except AttributeError:
+                pass
         finally:
             self.rwlock.release()
 
     def close(self):
         try:
-            self.rwlock.acquire_read()
+            self.rwlock.acquire_write()
 
-            if self.filename is not None:
-                with open(self.filename, "wb") as fd:
-                    self.dump(fd)
+            # Flush cache to db
+            for k, v in self.cache.items():
+                self.db[dumps(k)] = dumps(v)
+
+            self.db.close()
         finally:
             self.rwlock.release()
 
     @abc.abstractmethod
-    def update(self, *args, **kwargs):
+    def refresh(self, key):
         pass
 
-    def get(self, *args, **kwargs):
-        k = args + tuple(sorted(kwargs.items()))
 
-        try:
-            self.rwlock.acquire_read()
-
-            if k not in self.cache:
-                self.rwlock.promote()
-
-                v = self.update(*args, **kwargs)
-
-                if v is None:
-                    return None
-                else:
-                    self.cache[k] = v
-
-                self.rwlock.demote()
-
-            return self.cache[k]
-        finally:
-            self.rwlock.release()
+REGEX_TAGS = re.compile(r'\<.+?\>')
+REGEX_SQMI = re.compile(r'(?P<sqmi>[0-9\.,]+)\s*square miles')
 
 class CityAreaDB(DB):
-    TAGS_REGEX = re.compile(r'\<.+?\>')
-    SQMI_REGEX = re.compile(r'Land area:\s*(?P<sqmi>[0-9\.]+)\s*square miles\.')
+    def refresh(self, key):
+        city, state = key
 
-    def update(self, *args, **kwargs):
-        city, state = args
+        if city is not None:
+            html_url = "http://www.city-data.com/city/%s-%s.html" % key
+            html_tag = '//section[@id="population-density"]'
+        else:
+
+            html_url = "http://www.city-data.com/city/%s.html" % state
+            html_tag = '//span[@class="badge"]'
 
         try:
-            htm = parse("http://www.city-data.com/city/%s-%s.html" % args)
+            html = parse(html_url)
         except OSError:
             return None
 
         time.sleep(1)
 
-        for tag in htm.xpath('//section[@id="population-density"]'):
-            text = CityAreaDB.TAGS_REGEX.sub('', tostring(tag).decode())
-            match = CityAreaDB.SQMI_REGEX.search(text)
+        for tag in html.xpath(html_tag):
+            text = REGEX_TAGS.sub('', tostring(tag).decode())
+            match = REGEX_SQMI.search(text)
 
             if match is not None:
                 # Convert to km^2
-                return float(match.group("sqmi")) * 2.589988
+                return float(match.group("sqmi").replace(',', '')) * 2.589988
 
         return None
 
 class GeolocationDB(DB):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, filename):
+        super().__init__(filename)
 
         self.backend = Nominatim(
             user_agent = "curent-utk",
             country_bias = "USA"
         )
 
-    def update(self, *args, **kwargs):
+    def refresh(self, key):
+        query = {"country": "USA"}
+
+        if key.house_number is not None and key.street is not None:
+            query["street"] = key.house_number + " " + key.street
+
+        if key.city is not None:
+            query["city"] = key.city
+
+        if key.state is not None:
+            query["state"] = key.state
+
+        if key.zip_code is not None:
+            query["postalcode"] = key.zip_code
+
         try:
-            coord = self.backend.geocode(kwargs)
+            coord = self.backend.geocode(query)
         except GeopyError:
             return None
 
