@@ -1,0 +1,35 @@
+username|date|retweets|favorites|text|cleantext|is_retweet|ID|permalink|address|coord_lat|coord_lon|coord_err
+WHBRTV|2017-10-29 07:12:22|1|5|http://WHBR.com    #SundayMorning  #ctnishope pic.twitter.com/7u9IMTOGtU|    #SundayMorning  #ctnishope |false|924594756537200640|/WHBRTV/status/924594756537200640||||
+WHBRTV|2017-09-09 07:29:47|0|4|# Irma  #pray pic.twitter.com/GDh9J4msVz|# Irma  #pray |false|906479746028064768|/WHBRTV/status/906479746028064768||||
+WHBRTV|2017-10-31 07:43:58|5|3|http://WHBR.org    __NEWLINE__#Tuesday  #ctnishope  #pensacola  #Florida  #WisdomIsPower pic.twitter.com/jtsHOspXnb|    __NEWLINE__#Tuesday  #ctnishope  #pensacola  #Florida  #WisdomIsPower |false|925327482915639296|/WHBRTV/status/925327482915639296||||
+WHBRTV|2017-10-24 21:53:54|4|9|# tuesdaynight  #ctnishope pic.twitter.com/dKi2Q9N5mg|# tuesdaynight  #ctnishope |false|923004661535297541|/WHBRTV/status/923004661535297541||||
+WHBRTV|2017-10-26 08:56:45|5|12|http://WHBR.org    #eyes  #Lord  #thursdaymotivation  #Pensacola pic.twitter.com/xuvNkVai2q|    #eyes  #Lord  #thursdaymotivation  #Pensacola |false|923533859412725761|/WHBRTV/status/923533859412725761||||
+WHBRTV|2017-10-12 12:29:52|3|4|# Thursday  #ctnishope pic.twitter.com/zqaipW2ZnZ|# Thursday  #ctnishope |false|918514065093398528|/WHBRTV/status/918514065093398528||||
+WHBRTV|2017-09-27 09:36:25|2|5|# blessing  #Wednesday  #ctnishope pic.twitter.com/G75op8Aye1|# blessing  #Wednesday  #ctnishope |false|913034593493798912|/WHBRTV/status/913034593493798912||||
+WHBRTV|2017-10-17 09:04:41|0|2|# Tuesday  #ctnishope pic.twitter.com/3Bv5drO0ea|# Tuesday  #ctnishope |false|920274366256046080|/WHBRTV/status/920274366256046080||||
+WHBRTV|2017-10-15 14:28:22|1|4|# Sunday  #ctnishope pic.twitter.com/mVMKpzi46p|# Sunday  #ctnishope |false|919631046920065025|/WHBRTV/status/919631046920065025||||
+WHBRTV|2017-09-07 09:24:21|4|9|# ThursdayThought  #ctnishope pic.twitter.com/pYEDPRi84l|# ThursdayThought  #ctnishope |false|905783800717873152|/WHBRTV/status/905783800717873152||||
+WHBRTV|2017-09-01 21:19:35|1|7|# wknd  #holidayweekend  #ctnishope pic.twitter.com/CktksQbtaL|# wknd  #holidayweekend  #ctnishope |false|903789469265997824|/WHBRTV/status/903789469265997824||||
+WHBRTV|2017-10-19 08:45:33|1|2|http://WHBR.org    #ThursdayMotivation  #ctnishope  #700club pic.twitter.com/a242xGkilU|    #ThursdayMotivation  #ctnishope  #700club |false|920994329187012608|/WHBRTV/status/920994329187012608||||
+WHBRTV|2017-10-10 05:29:16|0|4|# Tuesday  #ctnishope pic.twitter.com/Ih4n2ZJcRf|# Tuesday  #ctnishope |false|917683440300019712|/WHBRTV/status/917683440300019712||||
+WHBRTV|2017-09-15 08:04:20|1|4|# Friday  #ctnishope pic.twitter.com/xkrPXgo5WQ|# Friday  #ctnishope |false|908662766667468801|/WHBRTV/status/908662766667468801||||
+WHBRTV|2017-09-17 20:58:37|0|6|# sundaynight  #ctnishope  #Pensacola pic.twitter.com/MHCxAR79hv|# sundaynight  #ctnishope  #Pensacola |false|909582399603904513|/WHBRTV/status/909582399603904513||||
+WHBRTV|2017-09-11 08:39:03|1|5|# Monday  #ctnishope pic.twitter.com/1QeFRdbJRi|# Monday  #ctnishope |false|907221952103841792|/WHBRTV/status/907221952103841792||||
+WHBRTV|2017-09-21 05:22:44|1|5|# Thursday  #joy  #ctnishope pic.twitter.com/1U7e8swUxz|# Thursday  #joy  #ctnishope |false|910796427781124096|/WHBRTV/status/910796427781124096||||
+WHBRTV|2017-09-25 05:19:08|2|4|# MondayMotivation  #ctnishope pic.twitter.com/w1zgaUZcyx|# MondayMotivation  #ctnishope |false|912245070031724544|/WHBRTV/status/912245070031724544||||
+WHBRTV|2017-10-01 07:34:43|5|10|# Sunday  #faith  #hope  #love  #ctnishope pic.twitter.com/Lbjxx1AkCf|# Sunday  #faith  #hope  #love  #ctnishope |false|914453518026756096|/WHBRTV/status/914453518026756096||||
+WHBRTV|2017-10-27 08:58:40|1|11|# Friday  #ctnishope pic.twitter.com/I60XE4baYO|# Friday  #ctnishope |false|923896731032608768|/WHBRTV/status/923896731032608768||||
+WHBRTV|2017-09-26 05:09:06|2|4|# Tuesday  #ctnishope pic.twitter.com/idOIUFRu1e|# Tuesday  #ctnishope |false|912604935866519552|/WHBRTV/status/912604935866519552||||
+WHBRTV|2017-09-06 05:16:51|1|4|# Wednesday  #ctnishope pic.twitter.com/b2vt64hzOy|# Wednesday  #ctnishope |false|905359126397681664|/WHBRTV/status/905359126397681664||||
+WHBRTV|2017-10-23 05:25:08|2|4|# MondayMotivation  #ctnishope pic.twitter.com/85uvRj1fXz|# MondayMotivation  #ctnishope |false|922393440574459904|/WHBRTV/status/922393440574459904||||
+WHBRTV|2017-09-22 10:25:42|2|8|# Friday  #ctnishope  #peace pic.twitter.com/K3RCAlsbNJ|# Friday  #ctnishope  #peace |false|911235059969077248|/WHBRTV/status/911235059969077248||||
+WHBRTV|2017-10-06 05:18:06|5|13|# Friday  #ctnishope pic.twitter.com/aMVwvSY842|# Friday  #ctnishope |false|916231080046407680|/WHBRTV/status/916231080046407680||||
+WHBRTV|2017-10-03 09:15:43|4|14|# Tuesday  #ctnishope pic.twitter.com/x5uwIQ7Zis|# Tuesday  #ctnishope |false|915203712557240321|/WHBRTV/status/915203712557240321||||
+WHBRTV|2017-09-03 17:52:53|4|10|# sundayevening  #ctnishope pic.twitter.com/VFY9svzKJN|# sundayevening  #ctnishope |false|904462227847221248|/WHBRTV/status/904462227847221248||||
+WHBRTV|2017-09-12 19:54:40|2|5|Have a blessed evening. #ctnishope  #tuesdaynight pic.twitter.com/WszwWManJ4|Have a blessed evening. #ctnishope  #tuesdaynight |false|907754366504972288|/WHBRTV/status/907754366504972288||||
+WHBRTV|2017-10-30 10:14:41|1|2|# Monday  #ctnishope   http://WHBR.org   pic.twitter.com/WGUBzh0V67|# Monday  #ctnishope      |false|925003023042170880|/WHBRTV/status/925003023042170880||||
+WHBRTV|2017-10-09 05:38:26|3|10|# Monday  #ctnishope pic.twitter.com/QJ8552Ik8e|# Monday  #ctnishope |false|917323360564113409|/WHBRTV/status/917323360564113409||||
+WHBRTV|2017-09-05 09:55:23|5|5|# TuesdayThoughts  #ctnishope  #Bible pic.twitter.com/AGyWXuyGOj|# TuesdayThoughts  #ctnishope  #Bible |false|905066833505652736|/WHBRTV/status/905066833505652736||||
+WHBRTV|2017-10-18 05:53:22|0|1|http://WHBR.org   . #ctnishope pic.twitter.com/BxTVf5A0qu|   . #ctnishope |false|920588607483760642|/WHBRTV/status/920588607483760642||||
+WHBRTV|2017-09-19 09:28:31|2|4|# Tuesday  #ctnishope pic.twitter.com/2GFTq2caZt|# Tuesday  #ctnishope |false|910133502473068545|/WHBRTV/status/910133502473068545||||
+WHBRTV|2017-10-16 09:17:37|2|4|# Monday  #ctnishope  #grace pic.twitter.com/xmy3DZz2Ao|# Monday  #ctnishope  #grace |false|919915234814496768|/WHBRTV/status/919915234814496768||||

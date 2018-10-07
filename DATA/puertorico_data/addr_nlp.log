@@ -1,0 +1,20 @@
+
+Results for DATA:
+--------------------------------------------------------------------------------
+Total tweets: 1229068
+Tweets containing any address information in their text: 50798
+Tweets containing street-level address information in their text: 240
+Tweets containing city-level address information in their text: 3754
+Tweets containing state-level address information in their text: 46804
+Tweets whose address information was extracted via nlp(): 211
+Tweets whose address information was extracted via re(): 3783
+Tweets whose address information was extracted via statemap(): 46804
+--------------------------------------------------------------------------------
+Tweets whose address mapped to a valid geolocation: 49053
+Tweets whose geolocation error is < 1 km: 156
+Tweets whose geolocation error is < 5 km: 372
+Tweets whose geolocation error is < 25 km: 326
+Tweets whose geolocation error is < 100 km: 2212
+--------------------------------------------------------------------------------
+
+gANjY29sbGVjdGlvbnMKZGVmYXVsdGRpY3QKcQBjYnVpbHRpbnMKaW50CnEBhXECUnEDKGNfX21haW5fXwpTaWduYWwKcQRLAYVxBVJxBkoMwRIAaARLCIVxB1JxCE3UtmgESwKFcQlScQpNbsZoBEsFhXELUnEMTdS2aARLBoVxDVJxDk3HDmgESwSFcQ9ScRBNqg5oBEsJhXERUnESTZ2/aARLDYVxE1JxFE2kCGgESwOFcRVScRZL8GgESwqFcRdScRhLnGgESweFcRlScRpL02gESwyFcRtScRxNRgFoBEsLhXEdUnEeTXQBdS4=
