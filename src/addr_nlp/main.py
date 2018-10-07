@@ -16,7 +16,6 @@ from match import StreetAddress
 LOG_NAME = "addr_nlp.log"
 
 Signal = enum.Enum("Signal", """
-done
 tweet
 tweet_addr
 tweet_addr_street
@@ -43,12 +42,14 @@ class ScrapyDialect(csv.Dialect):
 GEODB  = GeolocationDB("geolocations")
 AREADB = CityAreaDB("cityareas")
 
-def log_thread(dirpath, dirnames, filenames, msgq, thread_ct, tee = True):
+def log_thread(dirpool, filepool, msgq, tee = True):
     counter = collections.defaultdict(int)
 
-    for dirname in dirnames:
+    for thread in dirpool:
+        thread.join()
+
         try:
-            with open(os.path.join(dirpath, dirname, LOG_NAME), "r") as oldlog:
+            with open(os.path.join(thread.name, LOG_NAME), "r") as oldlog:
                 lastline = oldlog.readlines()[-1].strip()
         except FileNotFoundError:
             continue
@@ -56,21 +57,23 @@ def log_thread(dirpath, dirnames, filenames, msgq, thread_ct, tee = True):
         for k, v in loads(lastline.encode()).items():
             counter[k] += v
 
-    with open(os.path.join(dirpath, LOG_NAME), "w") as log:
-        while thread_ct > 0:
-            msg = msgq.get()
+    logfd = open(os.path.join(threading.current_thread().name, LOG_NAME), "w")
 
-            if type(msg) is str:
-                log.write(msg)
-                if tee:
-                    sys.stderr.write(msg)
-            elif msg is Signal.done:
-                thread_ct -= 1
-            else:
-                counter[msg] += 1
+    while any(thread.is_alive() for thread in filepool):
+        try:
+            msg = msgq.get(timeout = 2)
+        except queue.Empty:
+            continue
+
+        if type(msg) is str:
+            logfd.write(msg)
+            if tee:
+                sys.stdout.write(msg)
+        else:
+            counter[msg] += 1
 
 
-        msg = """
+    msg = """
 Results for %s:
 --------------------------------------------------------------------------------
 Total tweets: %d
@@ -89,37 +92,44 @@ Tweets whose geolocation error is < 25 km: %d
 Tweets whose geolocation error is < 100 km: %d
 --------------------------------------------------------------------------------
 
-%s"""   % (
-            dirpath,
-            counter[Signal.tweet],
-            counter[Signal.tweet_addr],
-            counter[Signal.tweet_addr_street],
-            counter[Signal.tweet_addr_city],
-            counter[Signal.tweet_addr_state],
-            counter[Signal.tweet_addr_nlp],
-            counter[Signal.tweet_addr_re],
-            counter[Signal.tweet_addr_statemap],
-            counter[Signal.tweet_coord],
-            counter[Signal.tweet_coord_lt1km],
-            counter[Signal.tweet_coord_lt5km],
-            counter[Signal.tweet_coord_lt25km],
-            counter[Signal.tweet_coord_lt100km],
-            dumps(counter).decode()
-        )
+%s""" % (
+        dirpath,
+        counter[Signal.tweet],
+        counter[Signal.tweet_addr],
+        counter[Signal.tweet_addr_street],
+        counter[Signal.tweet_addr_city],
+        counter[Signal.tweet_addr_state],
+        counter[Signal.tweet_addr_nlp],
+        counter[Signal.tweet_addr_re],
+        counter[Signal.tweet_addr_statemap],
+        counter[Signal.tweet_coord],
+        counter[Signal.tweet_coord_lt1km],
+        counter[Signal.tweet_coord_lt5km],
+        counter[Signal.tweet_coord_lt25km],
+        counter[Signal.tweet_coord_lt100km],
+        dumps(counter).decode()
+    )
 
-        log.write(msg)
-        if tee:
-            sys.stderr.write(msg)
+    logfd.write(msg)
+    if tee:
+        sys.stdout.write(msg)
 
+    logfd.close()
 
-def bsv_thread(ifd, ofd, msgq):
+    GEODB.sync()
+    AREADB.sync()
+
+def bsv_thread(ifname, ofname, msgq):
+    ifd = open(ifname, "r", newline = "")
+    ofd = open(ofname, "w", newline = "")
+
     icsv = csv.DictReader(ifd, dialect = ScrapyDialect, quoting = csv.QUOTE_ALL)
     ocsv = None
 
     def send(msg):
-        msgq.put("[%s] %s -> %s:\n%s\n" % (
+        msgq.put("[%s] %s:\n%s\n" % (
             datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-            ifd.name, ofd.name, msg
+            threading.current_thread().name, msg
         ))
 
     for irow in icsv:
@@ -127,7 +137,12 @@ def bsv_thread(ifd, ofd, msgq):
 
         # Can't get iscv.fieldnames until at least some input has been read
         if ocsv is None:
-            ocsv = csv.DictWriter(ofd, dialect = ScrapyDialect, fieldnames = icsv.fieldnames + ["address", "coord_lat", "coord_lon", "coord_err"])
+            ocsv = csv.DictWriter(
+                ofd,
+                dialect = ScrapyDialect,
+                fieldnames = icsv.fieldnames +
+                             ["address", "coord_lat", "coord_lon", "coord_err"]
+                )
             ocsv.writeheader()
 
         orow = dict(irow)
@@ -138,6 +153,9 @@ def bsv_thread(ifd, ofd, msgq):
         orow["coord_err"] = None
 
         text = irow["Translation"] if "Translation" in irow else irow["text"]
+
+        if type(text) is not str:
+            continue
 
         addr = StreetAddress.nlp(text)
         if addr is not None:
@@ -201,9 +219,8 @@ def bsv_thread(ifd, ofd, msgq):
 
         # Prevent DictWriter from complaining about extra fields
         orow = {k: v for k, v in orow.items() if k in ocsv.fieldnames}
-        ocsv.writerow(orow)
 
-    msgq.put(Signal.done)
+        ocsv.writerow(orow)
 
     ifd.close()
     ofd.close()
@@ -213,8 +230,11 @@ if __name__ == "__main__":
         print("Usage:", sys.argv[0], "[DATA dir]", file = sys.stderr)
         exit(-1)
 
+    logthreads = {}
+
     for dirpath, dirnames, filenames in os.walk(sys.argv[1], topdown = False):
-        pool = []
+        filepool = []
+        dirpool = [logthreads[os.path.join(dirpath, d)] for d in dirnames if os.path.join(dirpath, d) in logthreads]
         msgq = queue.Queue()
 
         for filename in filenames:
@@ -226,30 +246,25 @@ if __name__ == "__main__":
 
             ofname = ifname[:rdot] + "_WCOORDS" + ifname[rdot:]
 
-            ifd = open(ifname, "r", newline = "")
-            ofd = open(ofname, "w", newline = "")
-
             # Note: doesn't actually do any multithreading because of GIL
-            pool.append(threading.Thread(
+            filepool.append(threading.Thread(
+                name = ifname + " -> " + ofname,
                 target = bsv_thread,
-                args = (ifd, ofd, msgq)
+                args = (ifname, ofname, msgq)
             ))
 
-            pool[-1].start()
+            filepool[-1].start()
 
-        log_thread(
-            dirpath,
-            dirnames,
-            filenames,
-            msgq,
-            len(pool)
+        logthreads[dirpath] = threading.Thread(
+            name = dirpath,
+            target = log_thread,
+            args = (dirpool, filepool, msgq)
         )
 
-        for thread in pool:
-            thread.join()
+        logthreads[dirpath].start()
 
-        GEODB.sync()
-        AREADB.sync()
+    for v in logthreads.values():
+        v.join()
 
 GEODB.close()
 AREADB.close()
