@@ -1,12 +1,23 @@
+"""
+"Convolutional Neural Networks for Sentence Classification" by Yoon Kim
+http://arxiv.org/pdf/1408.5882v2.pdf
+
+"""
+
 import glob
-from gensim.models import word2vec
-from os.path import join, exists, split
+import itertools
 import os
+from collections import Counter
+from os.path import join, exists, split
+
 import numpy as np
-from keras.callbacks import ModelCheckpoint
+import pandas as pd
+from gensim.models import word2vec
+from keras.callbacks import ModelCheckpoint, TensorBoard
 from keras.layers import Dense, Dropout, Flatten, Input, MaxPooling1D, Convolution1D, Embedding
 from keras.layers.merge import Concatenate
 from keras.models import Model
+from sklearn.model_selection import train_test_split
 
 
 def train_word2vec(sentence_matrix, vocabulary_inv,
@@ -25,7 +36,6 @@ def train_word2vec(sentence_matrix, vocabulary_inv,
     model_dir = 'models'
     model_name = "{:d}features_{:d}minwords_{:d}context".format(num_features, min_word_count, context)
     model_name = join(model_dir, model_name)
-    model_name = r"/home/manny/PycharmProjects/TweetAnalysis/src/models/50features_1minwords_10context"
     if exists(model_name):
         embedding_model = word2vec.Word2Vec.load(model_name)
         # print('Load existing Word2Vec model \'%s\'' % split(model_name)[-1])
@@ -36,7 +46,13 @@ def train_word2vec(sentence_matrix, vocabulary_inv,
 
         # Initialize and train the model
         # print('Training Word2Vec model...')
-        sentences = [[vocabulary_inv[w] for w in sentence_matrix]]
+        for sentence in sentence_matrix:
+            for word in sentence:
+                if word not in vocabulary_inv:
+                    vocabulary_inv[word.lower()] = 1
+
+        sentences = [[vocabulary_inv[w.lower()] for w in sentences] for sentences in sentence_matrix]
+        print(sentences)
         embedding_model = word2vec.Word2Vec(sentences, workers=num_workers,
                                             size=num_features, min_count=min_word_count,
                                             window=context, sample=downsampling)
@@ -58,46 +74,88 @@ def train_word2vec(sentence_matrix, vocabulary_inv,
     return embedding_weights
 
 
-
-def pad_sentences(sentence, padding_word="<PAD/>"):
-    sequence_length = 924
-    num_padding = sequence_length - len(sentence)
-    new_sentence = str(sentence) + padding_word * int((num_padding/6))
-    while(len(new_sentence) < 924):
-        new_sentence = new_sentence + " "
-    return new_sentence
-
-
-def build_input_data(sentence, vocabulary):
+def pad_sentences(sentences, padding_word=" "):
     """
-    Maps sentence and labels to vectors based on a vocabulary.
+    Pads all sentences to the same length. The length is defined by the longest sentence.
+    Returns padded sentences.
     """
-    for word in sentence:
-        if word not in vocabulary:
-            vocabulary[word] = len(vocabulary) +1
+    sequence_length = max(len(x) for x in sentences)
+    padded_sentences = []
+    for i in range(len(sentences)):
+        sentence = sentences[i]
+        num_padding = sequence_length - len(sentence)
+        new_sentence = str(sentence) + padding_word * int((num_padding / 6))
+        while (len(new_sentence) < sequence_length):
+            new_sentence = new_sentence + " "
+        padded_sentences.append(new_sentence)
+    return padded_sentences
 
-    x = np.array([[vocabulary[word] for word in sentence]])
-    return [x]
+
+def build_vocab(sentences):
+    """
+    Builds a vocabulary mapping from word to index based on the sentences.
+    Returns vocabulary mapping and inverse vocabulary mapping.
+    """
+    # Build vocabulary
+    sentences = sentences.str.lower()
+    sentences = sentences.tolist()
+
+    x = itertools.chain.from_iterable(sentences)
+    word_counts = Counter(x)
+
+    # Mapping from index to word
+    vocabulary_inv = [x[0] for x in word_counts.most_common()]
+    # Mapping from word to index
+    vocabulary = {x: i for i, x in enumerate(vocabulary_inv)}
+    return [vocabulary, vocabulary_inv]
 
 
-def load_data(text):
+def build_input_data(sentences, vocabulary):
+    """
+    Maps sentencs and labels to vectors based on a vocabulary.
+    """
 
-    vocabulary = {'/': 0, 'A': 1, 'D': 2, 'P': 3, '<': 4, '>': 5, ' ': 6, 'e': 7, 'a': 8, 't': 9, 'o': 10, 'n': 11, 'r': 12, 'i': 13, 's': 14, 'h': 15, 'l': 16, 'u': 17, 'd': 18, 'c': 19, 'y': 20, 'm': 21, '.': 22, 'g': 23, 'p': 24, 'w': 25, 'f': 26, 'T': 27, 'b': 28, 'S': 29, 'k': 30, 'I': 31, 'R': 32, ':': 33, '@': 34, 'H': 35, 'N': 36, 'v': 37, 'E': 38, "'": 39, 'O': 40, 'C': 41, '#': 42, 'M': 43, 'Y': 44, '!': 45, 'L': 46, 'W': 47, 'B': 48, ',': 49, '?': 50, 'G': 51, 'U': 52, 'F': 53, 'j': 54, 'x': 55, '_': 56, 'K': 57, 'J': 58, '1': 59, 'z': 60, '0': 61, '2': 62, 'V': 63, '-': 64, '3': 65, '5': 66, '&': 67, '4': 68, ';': 69, ')': 70, 'q': 71, '7': 72, '9': 73, '(': 74, '8': 75, '6': 76, 'Z': 77, 'X': 78, 'Q': 79, '\\': 80, '“': 81, '”': 82, '*': 83, '$': 84, '’': 85, '[': 86, ']': 87, '|': 88, '%': 89, '=': 90, '^': 91, '~': 92, '+': 93, '…': 94, '‘': 95, '\xa0': 96, '–': 97, '—': 98, '`': 99, 'é': 100, '¤': 101, '»': 102, '}': 103, '°': 104, '¢': 105, '•': 106, '®': 107, 'í': 108, '«': 109, 'ö': 110}
-    sentence_padded = pad_sentences(text)
-    # print(sentence_padded)
-    # vocabulary, vocabulary_inv = build_vocab(sentences_padded)
-    x = build_input_data(sentence_padded, vocabulary)
+    for sentence in sentences:
+        for word in sentence:
+            if word not in vocabulary:
+                vocabulary[word.lower()] = len(vocabulary) + 1
+                # print(word)
+    x = np.array([[vocabulary[word.lower()] for word in sentence] for sentence in sentences])
+    return [x], vocabulary
 
-    # print(x)
+
+def load_data(data_source):
+    """
+    Loads and preprocessed data for the MR dataset.
+    Returns input vectors, labels, vocabulary, and inverse vocabulary.
+    """
+    # Load and preprocess data
+    # sentences, labels = load_data_and_labels()
+
+    train = pd.read_csv(data_source, names=['tweet id', 'tweet', 'label'])
+
+    train['label'] = train['label'].map({'on-topic': int(1), 'off-topic': int(0)})
+    train['label'] = train['label'].fillna(value=0)
+    y = train['label']
+    sentences = train['tweet'].fillna(0)
+    corpus = pd.read_csv('corpus.csv')
+    corpus = corpus.applymap(str)
+    corpus = corpus['Tweet'].fillna("  ")
+
+    sentences_padded = pad_sentences(sentences)
+    vocabulary, vocabulary_inv = build_vocab(corpus)
+    x, vocabulary = build_input_data(sentences_padded, vocabulary)
     x = x[0]
-    return  x, vocabulary,  text
+    vocabulary_inv = vocabulary
+    vocabulary_inv_list = vocabulary_inv
+    vocabulary_inv = {key: value for key, value in enumerate(vocabulary_inv_list)}
+
+    X_train, X_test, y_train, y_test = train_test_split(x, y)
+
+    return X_train, X_test, y_train, y_test, vocabulary_inv, x, corpus
 
 
-
-
-def model_predict(model_type, text):
-
-
+def main(model_type):
     np.random.seed(0)
 
     pathtoproject = r"/home/manny/PycharmProjects/TweetAnalysis/florida/results/nn_cleaning/"
@@ -115,10 +173,10 @@ def model_predict(model_type, text):
 
     # Training parameters
     batch_size = 64
-    num_epochs = 30
+    num_epochs = 9
 
     # Prepossessing parameters
-    sequence_length = 924
+    sequence_length = 400
     max_words = 5000
 
     # Word2Vec parameters (see train_word2vec)
@@ -128,25 +186,25 @@ def model_predict(model_type, text):
     #
     # ---------------------- Parameters end -----------------------
 
-
     # Data Preparation
-    # print("Load data...")
-    data, vocabulary_inv, x = load_data(text)
+    print("Load data...")
+    x_train, x_test, y_train, y_test, vocabulary_inv, x, corpus = load_data(data_source)
 
-    # data.reshape(1, 924)
-    # print("data shape:", data.shape)
+    print("x_train shape:", x_train.shape)
+    print("y_train shape:", y_train.shape)
+    print("x_test shape:", x_test.shape)
+    print("y_test shape:", y_test.shape)
 
+    if sequence_length != x_test.shape[1]:
+        print("Adjusting sequence length for actual size")
+        sequence_length = x_test.shape[1]
 
-    # if sequence_length != data.shape:
-    #     print("Adjusting sequence length for actual size")
-    #     sequence_length = data.shape
-
-    # print("Vocabulary Size: {:d}".format(len(vocabulary_inv)))
+    print("Vocabulary Size: {:d}".format(len(vocabulary_inv)))
 
     # Prepare embedding layer weights and convert inputs for static model
-    # print("Model type is", model_type)
+    print("Model type is", model_type)
     if model_type == "CNN-non-static":
-        embedding_weights = train_word2vec(x, vocabulary_inv, num_features=embedding_dim,
+        embedding_weights = train_word2vec(corpus, vocabulary_inv, num_features=embedding_dim,
                                            min_word_count=min_word_count, context=context)
 
     elif model_type == "CNN-rand":
@@ -154,11 +212,12 @@ def model_predict(model_type, text):
     else:
         raise ValueError("Unknown model type")
 
-    input_shape = (924,)
+    # Build model
+    input_shape = (sequence_length,)
 
     model_input = Input(shape=input_shape)
 
-
+    # Static model does not have embedding layer
     z = Embedding(len(vocabulary_inv), embedding_dim, input_length=sequence_length, name="embedding")(model_input)
 
     z = Dropout(dropout_prob[0])(z)
@@ -186,7 +245,7 @@ def model_predict(model_type, text):
     # Initialize weights with word2vec
     if model_type == "CNN-non-static":
         weights = np.array([v for v in embedding_weights.values()])
-        # print("Initializing embedding layer with word2vec weights, shape", weights.shape)
+        print("Initializing embedding layer with word2vec weights, shape", weights.shape)
         embedding_layer = model.get_layer("embedding")
         embedding_layer.set_weights([weights])
 
@@ -194,6 +253,7 @@ def model_predict(model_type, text):
     if model_type == "CNN-rand":
         model_directory = pathtoproject + 'cnn_rand_models/'
         tsboard_path = pathtoproject + 'tensorboard_logs/cnn_rand_30'
+
     else:
         model_directory = pathtoproject + 'cnn_non_static_models/'
         tsboard_path = pathtoproject + 'tensorboard_logs/cnn_non_static_30'
@@ -201,24 +261,35 @@ def model_predict(model_type, text):
         filepath=model_directory + filepath, verbose=1,
         save_best_only=True)
 
-
     list_of_files = glob.glob(model_directory + '*')  # list of files and their path
 
-
     if len(list_of_files) >= 1:
-        latest_file = sorted(list_of_files, key=lambda x: float(os.path.basename(x).replace('weights-improvement-', '').replace('.hdf5', '')))
-
-
-        # print(latest_file[0])
+        latest_file = sorted(list_of_files, key=lambda x: float(
+            os.path.basename(x).replace('weights-improvement-', '').replace('.hdf5', '')))
+        print(latest_file[0])
 
         model.load_weights(latest_file[0])
-
     else:
-        print("No saved checkpoint found")
+        print("No saved checkpoint found: beginning training")
     # Train the model
-    predict = model.predict(data)
-    predict = predict.max()
-    return round(predict)
+    model.fit(x_train, y_train, batch_size=batch_size, epochs=num_epochs,
+              validation_data=(x_test, y_test), verbose=2, callbacks=[check_pointer, TensorBoard(
+            log_dir=tsboard_path)])
 
-# prediciton = model_predict("CNN-non-static" ,"Hurricane")
-# print(prediciton)
+    # results = model.predict(x_test)
+    # print(results.head())
+
+
+model_type = "CNN-rand"  # CNN-rand|CNN-non-static
+
+# main("CNN-rand")
+
+# model_type = "CNN-non-static"  # CNN-rand|CNN-non-static
+
+main("CNN-non-static")  # model_type = "CNN-rand"  # CNN-rand|CNN-non-static
+
+# main("CNN-rand")
+#
+# # model_type = "CNN-non-static"  # CNN-rand|CNN-non-static
+#
+# main("CNN-non-static")
