@@ -19,7 +19,7 @@ for fname in tqdm(glob.glob(datafolder + "**/*", recursive=True)):
     if (os.path.isfile(fname)):
         print(fname)
         try:
-            f = open(fname)
+            f = open(fname, encoding="ISO-8859-1")
         except:
             pass
         name = str(fname)
@@ -30,8 +30,8 @@ for fname in tqdm(glob.glob(datafolder + "**/*", recursive=True)):
         elif fname.endswith(".txt"):
             csv_f = csv.reader(f, delimiter='|')
         header = next(csv_f, None)  # skip header, save for output
-        try:
-            for row in csv_f:
+        for row in csv_f:
+            try:
                 # skip empty row or row that is too short
                 if len(row) > 8:
                     # make sure tweet has word from crisislex
@@ -51,7 +51,6 @@ for fname in tqdm(glob.glob(datafolder + "**/*", recursive=True)):
                     if "caribbean equipment" in tweet:
                         print(fname, "FOUND")
                         input(" WHAY DO D")
-
 
                     # if any((txt in tweet) for txt in lex) and not (any(txt in tweet for txt in exclude)):
                     # deal with messy dates
@@ -95,9 +94,8 @@ for fname in tqdm(glob.glob(datafolder + "**/*", recursive=True)):
                     # tab separate each tweet line
                     text = text + "\t"
                     # print(text)
-        except:
-            pass
-
+            except:
+                pass
 
 df = pd.DataFrame.from_dict(df_dict)
 df.to_csv('corpus.csv')

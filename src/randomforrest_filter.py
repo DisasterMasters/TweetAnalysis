@@ -36,17 +36,30 @@ def build_model(verbose=False):
         print("Training Model")
 
     # train the model and split into test-train
-    X_train, X_test, y_train, y_test = train_test_split(x, y, random_state=0)
+    # X_train, X_test, y_train, y_test = train_test_split(x, y, random_state=0)
 
     if (verbose):
 
-        clf = RandomForestClassifier(verbose=2, n_jobs=-1, max_features=.2, n_estimators=12, min_samples_leaf=3)
+        clf = RandomForestClassifier(verbose=2,  max_features=.2, n_estimators=12, min_samples_leaf=3)
     else:
 
-        clf = RandomForestClassifier(verbose=0, n_jobs=-1, max_features=.2, n_estimators=12, min_samples_leaf=3)
+        clf = RandomForestClassifier(verbose=0, max_features=.2, n_estimators=12, min_samples_leaf=3)
 
-    clf.fit(X_train, y_train)
-    print(clf.score(X_test, y_test))
+    clf.fit(x, y)
+
+    sample_source = r"/home/manny/PycharmProjects/TweetAnalysis/src/Sample.csv"
+
+    test = pd.read_csv(sample_source)
+
+    test['Manual'] = test['Manual'].fillna(value=0)
+    y = test['Manual']
+    x = test['Tweet'].fillna(" ")
+    if (verbose):
+        print("Loading Validation set")
+
+    x = tfidf.transform(x).toarray()
+
+    print(clf.score(x, y))
     return tfidf, clf
 
 
