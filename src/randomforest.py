@@ -1,18 +1,8 @@
-import csv
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_extraction.text import TfidfTransformer
+import glob
+
 import pandas as pd
-import itertools
-from datetime import datetime
-import re
-import math
-import random
-from itertools import repeat
-import sys
-import os
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 training_data_path = r"/home/manny/PycharmProjects/TweetAnalysis/florida/training_data"
 results_path = r"/home/manny/PycharmProjects/TweetAnalysis/florida/results"
@@ -23,7 +13,8 @@ labels_list = []
 tweetlabel_dict = {}
 
 # pick file: media, utility, gov, or nonprofit
-typeoffile = sys.argv[1]
+# typeoffile = sys.argv[1]
+typeoffile = 'utility'
 
 included = [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 
@@ -40,48 +31,8 @@ if typeoffile == 'nonprofit':
 if typeoffile == 'gov':
     file_name = training_data_path + '/gov_data.txt'
 
-# reading in training data
-for dirs, subdirs, files in os.walk(
-        training_data_path + "/supervised_data/" + typeoffile):  # all data for supervised learning should be put in this directory
-    for fname in files:
-        file = open(dirs + "/" + fname, "r")
-        csv_read = csv.reader(file)
-        header = csv_read.next()
-        for row in csv_read:
-            if row[1] != '' and len(row[1].split(' ')) == 1:  # try to keep tweet as first entry and label as second
-                label = row[1]
-                if '.' in label:  # get rid of decimal labeling if there is any
-                    label = re.match(r'^(.*?)\..*', label).group(1)
-                label = int(label)
-                tweet = row[0]
-                # put into dictionary so we can count the tweets per label
-                if label not in tweetlabel_dict and label != 17:
-                    tweetlabel_dict[label] = [tweet]
-                elif label != 17:
-                    tweetlabel_dict[label].append(tweet)
-
-tweets = []
-labels_list = []
-
-# balancing out the training data (~500 in each category)
-for k, v in tweetlabel_dict.iteritems():
-
-    if len(v) > 500:
-        sample = random.sample(v, 500)
-        for s in sample:
-            tweets.append(s)
-        labels_list.extend(repeat(k, 500))
-
-    elif len(v) < 500:
-        iters = math.ceil(500.0 / len(v))
-        for i in range(0, int(iters)):
-            for vals in v:
-                tweets.append(vals)
-                labels_list.append(k)
-
-date_dict = {}
+# reading in testing data
 test_data = []
-
 # open test data obtained from media/utility file, parse
 file = open(file_name, "r")
 w = file.read()
@@ -92,35 +43,51 @@ for t in test:
         if t != ['']:
             test_data.append([t[0], t[1], t[2]])
 
+test = pd.DataFrame(test_data)
+test.columns = ["Tweet", "Date", "Link"]
+
+# reading in training data
+frame = pd.DataFrame()
+list_ = []
+
+files = glob.glob(training_data_path + "/supervised_data/" + typeoffile + "/*.csv")
+for fname in files:
+    df = pd.read_csv(fname, index_col=None, header=0)
+    list_.append(df)
+
+frame = pd.concat(list_, sort=False)
+
+# print(list(frame.columns.values))
+
+
+# Removing Category 7 from the frame
+frame = frame[frame['Manual Coding'] != 7]
+
+# Loading Corpus to train tfidf on
+corpus = pd.read_csv('corpus.csv')
+corpus = corpus.applymap(str)
+corpus = corpus['Tweet'].fillna("  ")
+
 # fit tf-idf with the training data
 tfidf = TfidfVectorizer(sublinear_tf=True, min_df=5, norm='l2', encoding='latin-1', ngram_range=(1, 2),
                         stop_words='english')
-features = tfidf.fit_transform(tweets).toarray()
-labels = labels_list
+
+# Training tfidf on corpus
+# tfidf.fit(frame['Tweet'])
+tfidf.fit(corpus)
+# tfidf.fit(test['Tweet'])
 
 # train the model
-count_vect = CountVectorizer()
-X_counts = count_vect.fit_transform(tweets)
-tfidf_transformer = TfidfTransformer()
-X_tfidf = tfidf_transformer.fit_transform(X_counts)
-clf = RandomForestClassifier().fit(X_tfidf, labels)
 
+x = tfidf.transform(frame['Tweet'])
+y = frame['Manual Coding']
+xtest = tfidf.transform(test['Tweet'])
 
-# open predictions file for writing
-outfile = open(results_path + "/" + typeoffile + "_supervised_rf.csv", "w")
-writer = csv.writer(outfile)
-writer.writerow(['Tweet', 'Category', 'Date', 'Permalink'])
+# xtrain, xtest, ytrain, ytest = train_test_split(x, y)
 
-# make prediction for each tweet, write to file
-for t in test_data:
-    vect = count_vect.transform([t[0]])
-    prediction = clf.predict(vect)
-    if prediction in included:
-        date = ''
-        # clean up mixed date formats -__-
-        if '/' in t[1]:
-            date = datetime.strptime(t[1], '%m/%d/%Y')
-        elif '-' in t[1]:
-            date = datetime.strptime(t[1], '%Y-%m-%d')
-        # writing tweet, prediction, date, and permalink
-        writer.writerow([t[0], int(prediction), date.strftime('%m/%d/%Y'), t[2]])
+clf = RandomForestClassifier(max_features='sqrt', n_estimators=40, n_jobs=-1).fit(x, y)
+# print( clf.score(xtest, ytest))
+
+test['Category'] = clf.predict(xtest)
+
+test.to_csv('/home/manny/PycharmProjects/TweetAnalysis/florida/results/utility_supervised_rf.csv')
