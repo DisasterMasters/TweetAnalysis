@@ -28,15 +28,15 @@ magic_numbers = {
     0xFFD8FF,                   # JPEG
     0x0000000C6A5020200D0A870A, # JPEG 2000
     0x89504e470d0a1a0a,         # Portable Network Graphics
-    0x5031,
+    0x5031,                     # Netpbm
     0x5032,
     0x5033,
     0x5034,
     0x5035,
-    0x5036,                     # Netpbm
+    0x5036,
     0x59A66A95,                 # Sun Raster
-    0x4d4d002a,
-    0x49492a00                  # Tagged Image File Format
+    0x4D4D002A,                 # Tagged Image File Format
+    0x49492A00
 }
 
 class ScrapyDialect(csv.Dialect):
@@ -67,21 +67,36 @@ for row in csv.DictReader(sys.stdin, dialect = ScrapyDialect, quoting = csv.QUOT
     )
 
     media = [t["media_url"] for t in tweet.entities["media"]]
+    orb = cv2.ORB_create()
 
     for m in media:
         try:
-            slurped = urlopen(m).read()
+            img_data = urlopen(m).read()
         except Exception:
             continue
 
-        if not any((int.from_bytes(slurped[0:n], byteorder = 'big') in magic_numbers) for n in range(2, 13)):
+        # OpenCV2 uses a C assertion (which the Python interpreter can't
+        # recover from) to make sure the file type is valid, so check the file
+        # type ahead of time
+        if not any((int.from_bytes(img_data[0:n], byteorder = 'big') in magic_numbers) for n in range(2, 13)):
             continue
 
+        img = cv2.imdecode(np.fromstring(img_data, dtype = np.uint8), cv2.IMREAD_GRAYSCALE)
+
+        '''
         with tempfile.NamedTemporaryFile(delete = False) as fd:
             save_name = fd.name
             fd.write(slurped)
 
         img = cv2.imread(save_name)
         os.remove(save_name)
+        '''
+
+        kp, des = orb.detectAndCompute(img, None)
+
+        img = cv2.drawKeypoints(img, kp, None, color = (0, 0, 255), flags = 0)
 
         # Do something with img here
+        cv2.imshow('image', img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
