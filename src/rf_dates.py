@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 
 def row_extractor(fname, row):
+    fname = os.path.basename(fname)
     if len(row) > 8:
         tweet = row[5]
         link = row[8]
@@ -25,7 +26,6 @@ def row_extractor(fname, row):
                 tweet = row[9]
             except:
                 pass
-            # print(tweet)
 
         # if any((txt in tweet) for txt in lex) and not (any(txt in tweet for txt in exclude)):
         # deal with messy dates
@@ -134,14 +134,13 @@ for fname in tqdm(glob.glob(direc + "**/*", recursive=True)):
             try:
                 # if "utility" == category:
 
-                if "WCOORDS" not in fname:
-                    clean_text, date_text, link = row_extractor(fname, row)
-                    df_dict["Tweet"].append(clean_text)
-                    df_dict["Date"].append(date_text)
-                    df_dict["Link"].append(link)
+                clean_text, date_text, link = row_extractor(fname, row)
+                df_dict["Tweet"].append(clean_text)
+                df_dict["Date"].append(date_text)
+                df_dict["Link"].append(link)
 
-                    # df = df.append({'Tweet': clean_text, 'Date': date_text, 'Link': link}, ignore_index=True)
-                    # tab separate each tweet line
+                # df = df.append({'Tweet': clean_text, 'Date': date_text, 'Link': link}, ignore_index=True)
+                # tab separate each tweet line
             except:
                 pass
 
