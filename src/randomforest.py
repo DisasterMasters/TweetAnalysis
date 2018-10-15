@@ -31,20 +31,20 @@ if typeoffile == 'nonprofit':
 if typeoffile == 'gov':
     file_name = training_data_path + '/gov_data.txt'
 
-# reading in testing data
-test_data = []
-# open test data obtained from media/utility file, parse
-file = open(file_name, "r")
-w = file.read()
-test = w.split("\t")
-for t in test:
-    if t != '\n':
-        t = t.split('~+&$!sep779++')
-        if t != ['']:
-            test_data.append([t[0], t[1], t[2]])
+# # reading in testing data
+# test_data = []
+# # open test data obtained from media/utility file, parse
+# file = open(file_name, "r")
+# w = file.read()
+# test = w.split("\t")
+# for t in test:
+#     if t != '\n':
+#         t = t.split('~+&$!sep779++')
+#         if t != ['']:
+#             test_data.append([t[0], t[1], t[2]])
 
-test = pd.DataFrame(test_data)
-test.columns = ["Tweet", "Date", "Link"]
+test = pd.read_csv(file_name)
+# test.columns = ["Tweet", "Date", "Link"]
 
 # reading in training data
 frame = pd.DataFrame()
@@ -70,7 +70,7 @@ corpus = corpus['Tweet'].fillna("  ")
 
 # fit tf-idf with the training data
 tfidf = TfidfVectorizer(sublinear_tf=True, min_df=5, norm='l2', encoding='latin-1', ngram_range=(1, 2),
-                        stop_words='english')k
+                        stop_words='english')
 
 # Training tfidf on corpus
 # tfidf.fit(frame['Tweet'])
@@ -90,4 +90,4 @@ clf = RandomForestClassifier(max_features='sqrt', n_estimators=40, n_jobs=-1).fi
 
 test['Category'] = clf.predict(xtest)
 
-test.to_csv('/home/manny/PycharmProjects/TweetAnalysis/flo. rida/results/utility_supervised_rf.csv')
+test.to_csv('/home/manny/PycharmProjects/TweetAnalysis/florida/results/utility_supervised_rf.csv')
