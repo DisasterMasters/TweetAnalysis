@@ -70,7 +70,7 @@ corpus = corpus['Tweet'].fillna("  ")
 
 # fit tf-idf with the training data
 tfidf = TfidfVectorizer(sublinear_tf=True, min_df=5, norm='l2', encoding='latin-1', ngram_range=(1, 2),
-                        stop_words='english')
+                        stop_words='english')k
 
 # Training tfidf on corpus
 # tfidf.fit(frame['Tweet'])
@@ -90,4 +90,4 @@ clf = RandomForestClassifier(max_features='sqrt', n_estimators=40, n_jobs=-1).fi
 
 test['Category'] = clf.predict(xtest)
 
-test.to_csv('/home/manny/PycharmProjects/TweetAnalysis/florida/results/utility_supervised_rf.csv')
+test.to_csv('/home/manny/PycharmProjects/TweetAnalysis/flo. rida/results/utility_supervised_rf.csv')

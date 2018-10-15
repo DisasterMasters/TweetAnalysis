@@ -38,4 +38,4 @@ rfresults = pd.Series(rfresults, name="RF")
 results = pd.concat([corpus, rfresults, lexresults], axis=1)
 
 
-results.sample(500).to_csv("Sample.csv")
+results.sample(500).to_csv("Sample1.csv")
