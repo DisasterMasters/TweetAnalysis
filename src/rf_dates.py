@@ -7,13 +7,12 @@ import os
 import re
 import sys
 from datetime import datetime
-
+from randomforrest_filter import build_model
 import pandas as pd
 from tqdm import tqdm
 
 
 def row_extractor(fname, row):
-    fname = os.path.basename(fname)
     if len(row) > 8:
         tweet = row[5]
         link = row[8]
@@ -105,7 +104,7 @@ else:
 # add cmd line denoting location and change data directories based on that
 # choose between utility, media, nonprofit, and government
 if category in {'utility', 'media', 'nonprofit', 'gov', 'env'}:
-    outfile = root_dir + '/' + place + '/training_data/' + category + '_data.txt'
+    outfile = root_dir + '/' + place + '/training_data/' + category + '_data_(not_utility_source).txt'
 else:
     outfile = sys.argv[2]
 
@@ -114,6 +113,8 @@ else:
 
 
 df_dict = {"Tweet": [], "Date": [], "Link": []}
+
+tfidf, clf = build_model()
 
 for fname in tqdm(glob.glob(direc + "**/*", recursive=True)):
     if (os.path.isfile(fname)):
@@ -132,19 +133,26 @@ for fname in tqdm(glob.glob(direc + "**/*", recursive=True)):
         header = next(csv_f, None)  # skip header, save for output
         for row in csv_f:
             try:
-                # if "utility" == category:
+                fname = os.path.basename(fname)
+                tweet = row[5]
+                link = row[8]
+                if fname[0] == '@' or fname == "FloridaMediaTweets.csv":
+                    tweet = row[4]
+                    link = row[9]
+                if row[0] not in link:
+                    clean_text, date_text, link = row_extractor(fname, row)
+                    df_dict["Tweet"].append(clean_text)
+                    df_dict["Date"].append(date_text)
+                    df_dict["Link"].append(link)
 
-                clean_text, date_text, link = row_extractor(fname, row)
-                df_dict["Tweet"].append(clean_text)
-                df_dict["Date"].append(date_text)
-                df_dict["Link"].append(link)
-
-                # df = df.append({'Tweet': clean_text, 'Date': date_text, 'Link': link}, ignore_index=True)
-                # tab separate each tweet line
+                    df = df.append({'Tweet': clean_text, 'Date': date_text, 'Link': link}, ignore_index=True)
             except:
                 pass
 
 df = pd.DataFrame.from_dict(df_dict)
-
+x = tfidf.transform(df['Tweet'])
+df['rfresults'] = clf.predict(x)
+df = df[df.rfresults != 0]
+df = df.drop('rfresults', 1)
 # open output file
-output_file = open(outfile, "w", encoding="utf-8")
+df.to_csv(outfile)

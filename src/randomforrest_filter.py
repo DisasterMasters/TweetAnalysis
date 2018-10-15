@@ -58,23 +58,10 @@ def build_model(verbose=False):
 
     clf.fit(x, y)
 
-    # sample_source = r"/home/manny/PycharmProjects/TweetAnalysis/DATA/T-06-Hurricane_Sandy_Labeled/Manually_labelled_data_2.csv"
-    #
-    # test = pd.read_csv(sample_source)
-    #
-    # test['Label'] = test['Label'].fillna(value=0)
-    # # y = test['Label']
-    # x = test['Tweet'].fillna(" ")
-    # if (verbose):
-    #     print("Loading Validation set")
-    #
-    # x = tfidf.transform(x).toarray()
-    #
-    # print(clf.score(x, y))
     return tfidf, clf
+
 #
-
-tfidf, clf = build_model(True)
-
-while (True):
-    print(clf.predict(tfidf.transform([input("Input test:   ")]).toarray())[0])
+# tfidf, clf = build_model(True)
+#
+# while (True):
+#     print(clf.predict(tfidf.transform([input("Input test:   ")]).toarray())[0])
