@@ -1,0 +1,20 @@
+
+Results for DATA/florida_data/gov_data:
+--------------------------------------------------------------------------------
+Total tweets: 265
+Tweets containing any address information in their text: 0
+Tweets containing street-level address information in their text: 0
+Tweets containing city-level address information in their text: 0
+Tweets containing state-level address information in their text: 0
+Tweets whose address information was extracted via nlp(): 0
+Tweets whose address information was extracted via re(): 0
+Tweets whose address information was extracted via statemap(): 0
+--------------------------------------------------------------------------------
+Tweets whose address mapped to a valid geolocation: 0
+Tweets whose geolocation error is < 1 km: 0
+Tweets whose geolocation error is < 5 km: 0
+Tweets whose geolocation error is < 25 km: 0
+Tweets whose geolocation error is < 100 km: 0
+--------------------------------------------------------------------------------
+
+gANjY29sbGVjdGlvbnMKZGVmYXVsdGRpY3QKcQBjYnVpbHRpbnMKaW50CnEBhXECUnEDKGNfX21haW5fXwpTaWduYWwKcQRLAYVxBVJxBk0JAWgESwKFcQdScQhLAGgESwOFcQlScQpLAGgESwSFcQtScQxLAGgESwWFcQ1ScQ5LAGgESweFcQ9ScRBLAGgESwaFcRFScRJLAGgESwiFcRNScRRLAGgESwmFcRVScRZLAGgESwqFcRdScRhLAGgESwuFcRlScRpLAGgESwyFcRtScRxLAGgESw2FcR1ScR5LAHUu

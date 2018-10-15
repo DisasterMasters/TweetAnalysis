@@ -1,0 +1,44 @@
+[2018-10-07T16:27:32Z] DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR.txt -> DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR_WCOORDS.txt:
+Found "2600 N 5th St" in tweet "Join us tomorrow at 3 pm for #UnidosPaPR  general meeting at @TallerPR  2600 N 5th St. Philadelphia, PA 19133. Learn more about our next steps and what you can do to help the efforts. We hope to see you!! pic.twitter.com/jt3ti1fEQ3"
+[2018-10-07T16:27:34Z] DATA/puertorico_data/Nonprofits/TranslatedFComunitaria.txt -> DATA/puertorico_data/Nonprofits/TranslatedFComunitaria_WCOORDS.txt:
+Found "Ponce, NH" in tweet "Ponce NHS becomes a first responder to #Villalba . Read more-->   http://ow.ly/xN2A30gkKys    #PuertoRico  #filantropíapr pic.twitter.com/XfFnzKYp4F"
+[2018-10-07T16:27:51Z] DATA/puertorico_data/Nonprofits/Translatedparalanaturalez.txt -> DATA/puertorico_data/Nonprofits/Translatedparalanaturalez_WCOORDS.txt:
+Found "FL" in tweet "Observe, identify, record and document. Join the Migratory Bird Count in Northern Carso. Help us to report the biodiversity of birds in the protected area of ​​the Encantado River, between Ciales, Florida and Manatí. Call 787.722.5882 to separate your space. pic.twitter.com/p2MteLgldL"
+[2018-10-07T16:32:27Z] DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR.txt -> DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR_WCOORDS.txt:
+Mapped "2600 N 5th St" to coordinates (36.421962, -97.870586) within a 0.0 km radius
+[2018-10-07T16:32:27Z] DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR.txt -> DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR_WCOORDS.txt:
+Found "Phila, PA 19140" in tweet "Don't forget to join us tomorrow #LegalClinic  @esperanza_us  4261 N. 5th St. Phila PA 19140 pic.twitter.com/f7M3w8C4ar"
+[2018-10-07T16:33:20Z] DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR.txt -> DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR_WCOORDS.txt:
+Found "WA" in tweet "Join us and our partner @LatinosEnMarcha  on Monday, Dec. 4th in Washington DC. https://twitter.com/LatinosEnMarch a/status/933495738776064000   …"
+[2018-10-07T16:34:41Z] DATA/puertorico_data/Nonprofits/Translatedparalanaturalez.txt -> DATA/puertorico_data/Nonprofits/Translatedparalanaturalez_WCOORDS.txt:
+Mapped "FL" to coordinates (27.756767, -81.463983) within a 210.85168210265104 km radius
+[2018-10-07T16:39:12Z] DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR.txt -> DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR_WCOORDS.txt:
+Mapped "WA" to coordinates (47.286835, -120.212614) within a 234.2223807882968 km radius
+[2018-10-07T16:39:12Z] DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR.txt -> DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR_WCOORDS.txt:
+Found "Philadelphia, PA" in tweet "Join us & @ForOurFuturePA  on Sat. Feb. 24th from 10 am to 12 noon - Philadelphia, PA: Working People's Day of Action, Thomas Pa To register for the Rally please use the following link https://actionnetwork.org/events/philade lphia-pa-working-peoples-day-of-action?source=FOF   …"
+[2018-10-07T16:39:15Z] DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR.txt -> DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR_WCOORDS.txt:
+Mapped "Philadelphia, PA" to coordinates (39.952415, -75.163575) within a 10.553623923595937 km radius
+[2018-10-07T16:39:15Z] DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR.txt -> DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR_WCOORDS.txt:
+Found "Philadelphia, PA 19133" in tweet "10am to 1pm - at the Lillian Marrero Library 601 W. Lehigh Ave. Philadelphia, PA 19133, Join the Unidos & @LatinosEnMarcha  team along volunteers will help evacuees with a variety of the following: Enter FEMA Applications or FEMA Appeals, Identify resources and provide information"
+[2018-10-07T16:40:28Z] DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR.txt -> DATA/puertorico_data/Nonprofits/TranslatedUnidosPaPR_WCOORDS.txt:
+Mapped "Philadelphia, PA 19133" to coordinates (39.952415, -75.163575) within a 10.553623923595937 km radius
+
+Results for DATA:
+--------------------------------------------------------------------------------
+Total tweets: 1550
+Tweets containing any address information in their text: 7
+Tweets containing street-level address information in their text: 1
+Tweets containing city-level address information in their text: 4
+Tweets containing state-level address information in their text: 2
+Tweets whose address information was extracted via nlp(): 1
+Tweets whose address information was extracted via re(): 4
+Tweets whose address information was extracted via statemap(): 2
+--------------------------------------------------------------------------------
+Tweets whose address mapped to a valid geolocation: 5
+Tweets whose geolocation error is < 1 km: 1
+Tweets whose geolocation error is < 5 km: 0
+Tweets whose geolocation error is < 25 km: 2
+Tweets whose geolocation error is < 100 km: 0
+--------------------------------------------------------------------------------
+
+gANjY29sbGVjdGlvbnMKZGVmYXVsdGRpY3QKcQBjYnVpbHRpbnMKaW50CnEBhXECUnEDKGNfX21haW5fXwpTaWduYWwKcQRLAYVxBVJxBk0OBmgESweFcQdScQhLAWgESwKFcQlScQpLB2gESwOFcQtScQxLAWgESwaFcQ1ScQ5LBGgESwSFcQ9ScRBLBGgESwiFcRFScRJLAmgESwWFcRNScRRLAmgESwmFcRVScRZLBWgESwqFcRdScRhLAWgESwyFcRlScRpLAmgESwuFcRtScRxLAGgESw2FcR1ScR5LAHUu
