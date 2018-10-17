@@ -90,4 +90,7 @@ clf = RandomForestClassifier(max_features='sqrt', n_estimators=40, n_jobs=-1).fi
 
 test['Category'] = clf.predict(xtest)
 
+
+test.drop(test.iloc[:, 0:1], inplace=True, axis=1)
+
 test.to_csv('/home/manny/PycharmProjects/TweetAnalysis/florida/results/utility_supervised_rf.csv')
