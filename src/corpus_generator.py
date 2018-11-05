@@ -48,10 +48,6 @@ for fname in tqdm(glob.glob(datafolder + "**/*", recursive=True)):
                             pass
                         # print(tweet)
 
-                    if "caribbean equipment" in tweet:
-                        print(fname, "FOUND")
-                        input(" WHAY DO D")
-
                     # if any((txt in tweet) for txt in lex) and not (any(txt in tweet for txt in exclude)):
                     # deal with messy dates
                     date_text = row[1].split(' ')[0]
