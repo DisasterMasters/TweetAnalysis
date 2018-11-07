@@ -3,6 +3,7 @@ import glob
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
+import imblearn
 
 training_data_path = r"/home/manny/PycharmProjects/TweetAnalysis/florida/training_data"
 results_path = r"/home/manny/PycharmProjects/TweetAnalysis/florida/results"
@@ -16,12 +17,11 @@ tweetlabel_dict = {}
 # typeoffile = sys.argv[1]
 typeoffile = 'utility'
 
-included = [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16]
-
 file_name = ''
 
 if typeoffile == 'utility':
     file_name = training_data_path + '/utility_data_(not_utility_source).txt'
+    train_name = training_data_path + "/supervised_data/utility/combined.csv"
     included = [1, 4, 8, 9, 10, 11, 12, 14, 15]
 if typeoffile == 'media':
     file_name = training_data_path + '/media_data.txt'
@@ -31,32 +31,12 @@ if typeoffile == 'nonprofit':
 if typeoffile == 'gov':
     file_name = training_data_path + '/gov_data.txt'
 
-# # reading in testing data
-# test_data = []
-# # open test data obtained from media/utility file, parse
-# file = open(file_name, "r")
-# w = file.read()
-# test = w.split("\t")
-# for t in test:
-#     if t != '\n':
-#         t = t.split('~+&$!sep779++')
-#         if t != ['']:
-#             test_data.append([t[0], t[1], t[2]])
-
 test = pd.read_csv(file_name)
 # test.columns = ["Tweet", "Date", "Link"]
 
 # reading in training data
-frame = pd.DataFrame()
-list_ = []
 
-files = glob.glob(training_data_path + "/supervised_data/" + typeoffile + "/*.csv")
-for fname in files:
-    df = pd.read_csv(fname, index_col=None, header=0)
-    list_.append(df)
-
-frame = pd.concat(list_, sort=False)
-
+train = pd.read_csv(train_name)
 # print(list(frame.columns.values))
 
 
@@ -89,7 +69,6 @@ clf = RandomForestClassifier(max_features='sqrt', n_estimators=40, n_jobs=-1).fi
 # print( clf.score(xtest, ytest))
 
 test['Category'] = clf.predict(xtest)
-
 
 test.drop(test.iloc[:, 0:1], inplace=True, axis=1)
 

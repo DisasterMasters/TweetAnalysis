@@ -14,9 +14,9 @@ import glob
 datafolder = r"/home/manny/PycharmProjects/TweetAnalysis/DATA/"
 print("Loading Corpus")
 
-df_dict = {"Tweet": [], "Date": [], "Link": []}
+df_dict = {"Tweet": [], "Raw": [], "Date": [], "Link": []}
 for fname in tqdm(glob.glob(datafolder + "**/*", recursive=True)):
-    if (os.path.isfile(fname)):
+    if (os.path.isfile(fname) and (fname.endswith(".csv") or fname.endswith(".txt")) and "WCOORDS" not in fname):
         print(fname)
         try:
             f = open(fname, encoding="ISO-8859-1")
@@ -24,6 +24,8 @@ for fname in tqdm(glob.glob(datafolder + "**/*", recursive=True)):
             pass
         name = str(fname)
         # open csv file if found
+        csv_f = csv.reader(f)
+
         if fname.endswith(".csv"):
             csv_f = csv.reader(f)
         # open txt file if found
@@ -46,7 +48,6 @@ for fname in tqdm(glob.glob(datafolder + "**/*", recursive=True)):
                             tweet = row[9]
                         except:
                             pass
-                        # print(tweet)
 
                     # if any((txt in tweet) for txt in lex) and not (any(txt in tweet for txt in exclude)):
                     # deal with messy dates
@@ -67,6 +68,7 @@ for fname in tqdm(glob.glob(datafolder + "**/*", recursive=True)):
                     tmp = tweet.split(' ')
                     # if start < date < end and len(tmp) > 3:
                     clean_text = tweet
+                    rawtext = tweet
                     # strip extra whitespace
                     clean_text = clean_text.strip()
                     # remove http/s link
@@ -83,6 +85,7 @@ for fname in tqdm(glob.glob(datafolder + "**/*", recursive=True)):
                     text = clean_text + '~+&$!sep779++' + date_text + '~+&$!sep779++' + link
 
                     df_dict["Tweet"].append(tweet)
+                    df_dict["Raw"].append(rawtext)
                     df_dict["Date"].append(date_text)
                     df_dict["Link"].append(link)
 
