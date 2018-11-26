@@ -14,6 +14,7 @@ prevent write starvation.
         self.mut = threading.RLock()
         self.rcond = threading.Condition(self.mut)
         self.wcond = threading.Condition(self.mut)
+
     def acquire_read(self):
         """Acquire a read lock. Several threads can hold this typeof lock.
 It is exclusive with write locks."""
@@ -22,6 +23,7 @@ It is exclusive with write locks."""
             self.rcond.wait()
         self.readers += 1
         self.mut.release()
+
     def acquire_write(self):
         """Acquire a write lock. Only one thread can hold this lock, and
 only when no read locks are also held."""
@@ -32,6 +34,7 @@ only when no read locks are also held."""
             self.writers -= 1
         self.readers = -1
         self.mut.release()
+
     def promote(self):
         """Promote an already-acquired read lock to a write lock
         WARNING: it is very easy to deadlock with this method"""
@@ -43,12 +46,14 @@ only when no read locks are also held."""
             self.writers -= 1
         self.readers = -1
         self.mut.release()
+
     def demote(self):
         """Demote an already-acquired write lock to a read lock"""
         self.mut.acquire()
         self.readers = 1
         self.rcond.notify_all()
         self.mut.release()
+
     def release(self):
         """Release a lock, whether read or write."""
         self.mut.acquire()

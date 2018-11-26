@@ -7,7 +7,7 @@ import re
 
 from lxml.html import parse
 from lxml.etree import tostring
-from geopy.geocoders import Nominatim
+import geopy.geocoders
 from geopy.exc import GeopyError
 
 from sync import RWLock
@@ -25,12 +25,6 @@ class DB(abc.ABC):
         self.cache = {}
         self.rwlock = RWLock()
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, tb):
-        self.close()
-
     def __contains__(self, key):
         try:
             self.rwlock.acquire_read()
@@ -46,12 +40,21 @@ class DB(abc.ABC):
             if key not in self.cache:
                 self.rwlock.promote()
 
-                dbkey = dumps(key)
+                dbkey = "%x" % hash(key)
 
                 if dbkey in self.db:
-                    self.cache[key] = loads(self.db[dbkey])
-                else:
-                    self.cache[key] = self.refresh(key)
+                    new_cache = loads(self.db["%x" % dbkey])
+                    new_cache.update(self.cache)
+
+                    self.cache = new_cache
+
+                if key not in self.cache:
+                    val = self.refresh(key)
+
+                    if val is not None:
+                        self.cache[key] = val
+
+                    return val
 
             return self.cache[key]
         finally:
@@ -78,9 +81,15 @@ class DB(abc.ABC):
         try:
             self.rwlock.acquire_write()
 
-            # Flush cache to db
+            # Convert cache into nested dictionary
+            nested_cache = collections.defaultdict(dict)
+
             for k, v in self.cache.items():
-                self.db[dumps(k)] = dumps(v)
+                nested_cache[hash(k)][k] = v
+
+            # Flush cache to db
+            for k, v in nested_cache.items():
+                self.db["%x" % hash(k)] = dumps(v)
 
             try:
                 self.db.sync()
@@ -89,13 +98,22 @@ class DB(abc.ABC):
         finally:
             self.rwlock.release()
 
+    def clear(self):
+        self.cache = {}
+
     def close(self):
         try:
             self.rwlock.acquire_write()
 
-            # Flush cache to db
+            # Convert cache into nested dictionary
+            nested_cache = collections.defaultdict(dict)
+
             for k, v in self.cache.items():
-                self.db[dumps(k)] = dumps(v)
+                nested_cache[hash(k)][k] = v
+
+            # Flush cache to db
+            for k, v in nested_cache.items():
+                self.db["%x" % hash(k)] = dumps(v)
 
             self.db.close()
         finally:
@@ -105,7 +123,7 @@ class DB(abc.ABC):
     def refresh(self, key):
         pass
 
-
+'''
 REGEX_TAGS = re.compile(r'\<.+?\>')
 REGEX_SQMI = re.compile(r'(?P<sqmi>[0-9\.,]+)\s*square miles')
 
@@ -137,15 +155,18 @@ class CityAreaDB(DB):
                 return float(match.group("sqmi").replace(',', '')) * 2.589988
 
         return None
+'''
 
 class GeolocationDB(DB):
     def __init__(self, filename):
         super().__init__(filename)
 
-        self.backend = Nominatim(
+        self.backend = geopy.geocoders.Nominatim(
             user_agent = "curent-utk",
             country_bias = "USA"
         )
+
+        self.dt = 0.0
 
     def refresh(self, key):
         query = {"country": "USA"}
@@ -162,13 +183,18 @@ class GeolocationDB(DB):
         if key.zip_code is not None:
             query["postalcode"] = key.zip_code
 
+        # Nominatim allows at most one request per second
+        # <https://operations.osmfoundation.org/policies/nominatim/>
+        dt = time.perf_counter()
+
+        if dt - self.dt < 1.1:
+            time.sleep(1.1 - (dt - self.dt))
+
+        self.dt = dt
+
         try:
-            coord = self.backend.geocode(query)
+            coord = self.backend.geocode(query, geometry = "geojson")
         except GeopyError:
             return None
 
-        # Nominatim allows at most one request per second
-        # <https://operations.osmfoundation.org/policies/nominatim/>
-        time.sleep(1)
-
-        return None if coord is None else (coord.latitude, coord.longitude)
+        return None if coord is None else coord

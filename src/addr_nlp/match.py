@@ -164,24 +164,51 @@ class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street
         if self.state is not None:
             if addrstr:
                 addrstr += ", "
-            addrstr += STATE_INVMAP[self.state]
+            addrstr += self.state
 
         if self.zip_code is not None:
-            addrstr += " " + self.zip_code
+            if addrstr:
+                addrstr += " "
+            addrstr += self.zip_code
 
         return addrstr
 
+'''
+    @staticmethod
+    def libpostal(text):
+        try:
+            from postal.parser import parse_address
+        except ModuleNotFoundError:
+            return None
+
+        result = {k: v for v, k in parse_address(text)}
+
+        return StreetAddress(
+            house_number = result.get("house_number", None),
+            street = result.get("road", None),
+            city = result.get("city", None),
+            state = result.get("state", None),
+            zip_code = result.get("postcode", None),
+            raw = text
+        )
+'''
+
     @staticmethod
     def statemap(text):
-        for word in text.split():
-            if word in STATE_SET:
+        words = text.split()
+
+        # Allow for two-word state names
+        words += [w0 + " " + w1 for w0, w1 in zip(words, words[1:])]
+
+        for word in words:
+            if word.title() in STATE_SET:
                 return StreetAddress(
                     house_number = None,
                     street = None,
                     city = None,
-                    state = word,
+                    state = word.title(),
                     zip_code = None,
-                    raw = None #raw = word
+                    raw = word
                 )
 
         return None
@@ -210,7 +237,7 @@ class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street
                                 city = None,
                                 state = None,
                                 zip_code = None,
-                                raw = None #raw = " ".join(leaves)
+                                raw = " ".join(leaves)
                             )
                 else:
                     for subtree in tree[::-1]:
@@ -235,7 +262,7 @@ class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street
         raw          = ""
 
         if line1 is not None:
-            raw = line1.string[line1.start():line1.end()]
+            raw = line1.group()
 
             if line1.group('street_suffix').upper() in STREET_SUFFIXES:
                 house_number  = line1.group('house_number')
@@ -265,5 +292,5 @@ class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street
             city = city,
             state = state,
             zip_code = zip_code,
-            raw = None #raw = raw
+            raw = raw
         )
