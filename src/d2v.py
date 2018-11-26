@@ -53,37 +53,38 @@ def label(tweets,sentiment):
 
 
 #trying out doc2vec
-d2v_model= Doc2Vec(alpha=.025, min_alpha=.025)
-d2v_model.build_vocab(label(t_train+t_test, s_train+s_test))
-d2v_model.train(label(t_train, s_train),total_examples=d2v_model.corpus_count, epochs=d2v_model.epochs)
-d2v_model.save('./syddidthis.d2v')
-print(d2v_model.docvecs[-1])
-vtest = []
-for tweet in t_test:
-   vtest.append(d2v_model.infer_vector(tweet))
+for w in (3, 5, 10, 15):
+    for ep in (5,10,15,20):
+        d2v_model= Doc2Vec()
+        d2v_model.build_vocab(label(t_train+t_test, s_train+s_test))
+        d2v_model.train(label(t_train, s_train),total_examples=d2v_model.corpus_count, epochs=ep)
 
-print(d2v_model.docvecs)
-neg_loc = math.sqrt(sum(d2v_model.docvecs[-1]*d2v_model.docvecs[-1]))
-neu_loc = math.sqrt(sum(d2v_model.docvecs[0]*d2v_model.docvecs[0]))
-pos_loc = math.sqrt(sum(d2v_model.docvecs[1]*d2v_model.docvecs[1]))
+        vtest = []
+        for tweet in t_test:
+           vtest.append(d2v_model.infer_vector(tweet,epochs=ep))
 
-pred_sent=[]
-for i in range(len(t_test)):
-    pred_loc = math.sqrt(sum(vtest[i]*vtest[i]))
-    is_neg = sum(vtest[i]*d2v_model.docvecs[-1])/pred_loc/neg_loc
-    is_neu = sum(vtest[i]*d2v_model.docvecs[0])/pred_loc/neu_loc
-    is_pos = sum(vtest[i] * d2v_model.docvecs[1])/pred_loc/pos_loc
-    if(is_neg>is_neu and is_neg>is_pos):
-        pred_sent.append(-1)
-    elif(is_neu>=is_neg and is_neu>=is_pos):
-        pred_sent.append(0)
-    elif(is_pos>is_neu and is_pos>is_neg):
-        pred_sent.append(1)
 
-correct = 0
-for i in range(0, len(pred_sent)):
-   if(int(pred_sent[i]) == int(s_test[i])):
-       correct += 1
+        neg_loc = math.sqrt(sum(d2v_model.docvecs[-1]*d2v_model.docvecs[-1]))
+        neu_loc = math.sqrt(sum(d2v_model.docvecs[0]*d2v_model.docvecs[0]))
+        pos_loc = math.sqrt(sum(d2v_model.docvecs[1]*d2v_model.docvecs[1]))
 
-print("ONE TIME RUN")
-print(correct/len(pred_sent))
+        pred_sent=[]
+        for i in range(len(t_test)):
+            pred_loc = math.sqrt(sum(vtest[i]*vtest[i]))
+            is_neg = sum(vtest[i]*d2v_model.docvecs[-1])/pred_loc/neg_loc
+            is_neu = sum(vtest[i]*d2v_model.docvecs[0])/pred_loc/neu_loc
+            is_pos = sum(vtest[i] * d2v_model.docvecs[1])/pred_loc/pos_loc
+            if(is_neg>is_neu and is_neg>is_pos):
+                pred_sent.append(-1)
+            elif(is_neu>=is_neg and is_neu>=is_pos):
+                pred_sent.append(0)
+            elif(is_pos>is_neu and is_pos>is_neg):
+                pred_sent.append(1)
+
+        correct = 0
+        for i in range(0, len(pred_sent)):
+           if(int(pred_sent[i]) == int(s_test[i])):
+               correct += 1
+
+        print("ONE TIME RUN")
+        print("ep= "+str(ep)+" w= "+str(w)+ " acc= "+str(correct/len(pred_sent)))
