@@ -7,10 +7,12 @@ import os
 import sys
 import queue
 import enum
+import shelve
 
 import nltk
+import pymongo
 
-from db import GeolocationDB, dumps
+from geocode import GeolocationDB
 from geojson import geojson_to_coords
 from match import StreetAddress
 
@@ -21,43 +23,55 @@ if __name__ == "__main__":
 
     ctr = collections.Counter()
 
-    with contextlib.closing(GeolocationDB("geolocations")) as geodb, contextlib.closing(pymongo.MongoClient()) as conn:
+    with GeolocationDB("geolocations") as geodb, contextlib.closing(pymongo.MongoClient()) as conn:
         def get_coord_info(r):
+            try:
+                text = r["extended_tweet"]["full_text"]
+            except KeyError:
+                text = r["text"]
+
             if r["coordinates"] is not None:
                 geojson = r["coordinates"]
             elif r["place"] is not None:
                 geojson = r["place"]["bounding_box"]
             else:
-                try:
-                    text = r["extended_tweet"]["full_text"]
-                except KeyError:
-                    text = r["text"]
 
-                addr = StreetAddress.nlp(text)
-                if addr is not None:
-                    #msgq.put(Signal.tweet_addr_nlp)
-                else:
-                    addr = StreetAddress.re(text)
-                    if addr is not None:
-                        #msgq.put(Signal.tweet_addr_re)
-                    else:
-                        addr = StreetAddress.statemap(text)
-                        if addr is not None:
-                            #msgq.put(Signal.tweet_addr_statemap)
-                        else:
-                            return None
+                addr_nlp = StreetAddress.nlp(text)
+                addr_re = StreetAddress.re(text)
+                addr_statemap = StreetAddress.statemap(text)
 
-                db_loc = geodb[addr._replace(raw = None)]
+                addr = addr_nlp or addr_re or addr_statemap
+                if addr is None:
+                    return None
 
-                if "geojson" in db_loc.raw:
-                    geojson = db_loc.raw["geojson"]
+                db_loc = geodb[addr]
+                if db_loc is None:
+                    return None
+
+                if "geojson" in db_loc:
+                    geojson = db_loc["geojson"]
+                elif "boundingbox" in db_loc:
+                    geojson = {
+                        "type": "Polygon",
+                        "coordinates": [[
+                            [float(db_loc["boundingbox"][0]), float(db_loc["boundingbox"][2])],
+                            [float(db_loc["boundingbox"][0]), float(db_loc["boundingbox"][3])],
+                            [float(db_loc["boundingbox"][1]), float(db_loc["boundingbox"][3])],
+                            [float(db_loc["boundingbox"][1]), float(db_loc["boundingbox"][2])]
+                        ]]
+                    }
                 else:
                     geojson = {
-                        "type": "Point",
-                        "coordinates": [db_loc.longitude, db_loc.latitude]
+                        "type": "Polygon",
+                        "coordinates": [float(db_loc["lon"]), float(db_loc["lat"])]
                     }
 
             lat, lon, err = geojson_to_coords(geojson)
+
+            if (lat, lon, err) == (None, None, None):
+                return None
+
+            print("Tweet %r (\"%s\") mapped to (%f, %f) with an error of %f km" % (r["id"], text, lat, lon, err))
 
             return {
                 "id": r["id"],
@@ -74,10 +88,10 @@ if __name__ == "__main__":
         coll_out.create_index([('id', pymongo.ASCENDING)], name = 'id_ordered_index')
         coll_out.create_index([('geojson', pymongo.GEOSPHERE)], name = 'geojson_index')
 
-        results = list(filter(map(get_coord_info, coll_in.find())))
+        results = list(filter(None, map(get_coord_info, coll_in.find())))
 
         coll_out.insert_many(results, ordered = False)
-
+'''
     msg = """
 Results for %s -> %s:
 --------------------------------------------------------------------------------
@@ -94,10 +108,7 @@ Tweets whose geolocation error is in the range (0 km, 1 km]: %d
 Tweets whose geolocation error is in the range (1 km, 5 km]: %d
 Tweets whose geolocation error is in the range (5 km, 25 km]: %d
 Tweets whose geolocation error is in the range (25 km, 100 km]: %d
-Tweets whose geolocation error is greater than 100 km: %d
---------------------------------------------------------------------------------
-Pickled collections.Counter of above statistics:
-%s""" % (
+Tweets whose geolocation error is greater than 100 km: %d""" % (
         sys.argv[1], sys.argv[2],
         ctr["tweet"],
         ctr["tweet_geo"],
@@ -111,8 +122,8 @@ Pickled collections.Counter of above statistics:
         ctr["tweet_geo_1to5km"],
         ctr["tweet_geo_5to25km"],
         ctr["tweet_geo_25to100km"],
-        ctr["tweet_geo_gt100km"],
-        dumps(ctr).decode()
+        ctr["tweet_geo_gt100km"]
     )
 
     print(msg)
+'''

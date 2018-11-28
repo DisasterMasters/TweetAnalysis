@@ -173,26 +173,6 @@ class StreetAddress(collections.namedtuple('StreetAddress', 'house_number street
 
         return addrstr
 
-'''
-    @staticmethod
-    def libpostal(text):
-        try:
-            from postal.parser import parse_address
-        except ModuleNotFoundError:
-            return None
-
-        result = {k: v for v, k in parse_address(text)}
-
-        return StreetAddress(
-            house_number = result.get("house_number", None),
-            street = result.get("road", None),
-            city = result.get("city", None),
-            state = result.get("state", None),
-            zip_code = result.get("postcode", None),
-            raw = text
-        )
-'''
-
     @staticmethod
     def statemap(text):
         words = text.split()
