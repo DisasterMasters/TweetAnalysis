@@ -155,24 +155,3 @@ class doc2vec:
         return X.apply(self.predict_text_main)
 
 
-# df = pd.read_csv("/home/manny/PycharmProjects/TweetAnalysis/src/sentiment.csv")
-# print("Building model")
-#
-#
-# # We pass the class 3 fields:
-# # 1. The DataFrame
-# # 2. The X value, the Text (Pandas Series)
-# # 3. The Y values, the labels that correspond to the text (Pandas Series)
-# #                   It can be a list of the names of the columns or one as a string
-#
-# x = doc2vec(df, "text", ["main",  "Source", 'sentiment', 'classification'])
-#
-#
-# # print("Scoring Model")
-#
-# #returns scores of each label uses sklearn.metrics.f1_score
-# x.score()
-#
-# print("Testing text")
-# # You can predict text as follows
-# print(x.predict_text("its going to be the worst time ever"))
