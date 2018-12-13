@@ -1,11 +1,9 @@
-import json
-import gensim
-from tqdm import tqdm
-import pandas as pd
-from gensim.models.doc2vec import TaggedDocument
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import f1_score
 import re
+import gensim
+from gensim.models.doc2vec import TaggedDocument
+from sklearn.metrics import f1_score
+from sklearn.model_selection import train_test_split
+
 
 class doc2vec:
 
