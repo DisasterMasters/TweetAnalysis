@@ -13,12 +13,12 @@ class doc2vec:
             basestring = str
 
         # Hyperparameters : https://arxiv.org/pdf/1607.05368.pdf
-        self.vector_size = 100
-        self.window_size = 10
-        self.min_count = 1
+        self.vector_size = 300
+        self.window_size = 15
+        self.min_count = 2
         self.sampling_threshold = 1e-4
         self.negative_size = 5
-        self.train_epoch = 40
+        self.train_epoch = 50
         self.dm = 0
         self.worker_count = 7
 
@@ -106,10 +106,12 @@ class doc2vec:
         if verbose:
             print("Scoring results")
         print("Label Score: ")
-
-        print(f1_score(test[self.testseries_name], test['results'], average=None))  # Uses train test split to get score
+        labelaccuracy = f1_score(test[self.testseries_name], test['results'], average=None)
+        print(labelaccuracy)  # Uses train test split to get score
         print("Accuracy Score: ")
-        print(accuracy_score(test[self.testseries_name], test['results']))        # Uses train test split to get score
+        accuracy = accuracy_score(test[self.testseries_name], test['results'])
+        print(accuracy)        # Uses train test split to get score
+        return [labelaccuracy, accuracy]
 
 
     def predict_taggedtext(self,
@@ -184,6 +186,3 @@ class doc2vec:
             return X.progress_apply(self.predict_text_main)
         else:
             return X.apply(self.predict_text_main)
-
-
-
