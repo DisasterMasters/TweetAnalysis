@@ -69,7 +69,7 @@ class doc2vec:
 
         if isinstance(Y, basestring):
             df_tags.append(Y)
-        if isinstance(Y, list):
+        elif isinstance(Y, list):
             df_tags = Y
         elif not isinstance(Y, list):
             raise TypeError
