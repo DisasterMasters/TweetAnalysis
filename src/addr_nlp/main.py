@@ -62,14 +62,15 @@ if __name__ == "__main__":
                     }
                 else:
                     geojson = {
-                        "type": "Polygon",
+                        "type": "Point",
                         "coordinates": [float(db_loc["lon"]), float(db_loc["lat"])]
                     }
 
             lat, lon, err = geojson_to_coords(geojson)
 
             if (lat, lon, err) == (None, None, None):
-                return None
+                lat = float(db_loc["lat"])
+                lon = float(db_loc["lon"])
 
             print("Tweet %r (\"%s\") mapped to (%f, %f) with an error of %f km" % (r["id"], text, lat, lon, err))
 
@@ -85,7 +86,6 @@ if __name__ == "__main__":
         coll_out = conn["twitter"][sys.argv[2]]
 
         coll_out.create_index([('id', pymongo.HASHED)], name = 'id_index')
-        coll_out.create_index([('id', pymongo.ASCENDING)], name = 'id_ordered_index')
         coll_out.create_index([('geojson', pymongo.GEOSPHERE)], name = 'geojson_index')
 
         results = list(filter(None, map(get_coord_info, coll_in.find())))

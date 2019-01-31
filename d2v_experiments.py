@@ -235,9 +235,9 @@ from nltk.stem.snowball import SnowballStemmer
 stopwords = set(nltk.corpus.stopwords.words("english"))
 stemmer = SnowballStemmer("english")
 
-with contextlib.closing(pymongo.MongoClient("da1.eecs.utk.edu")) as conn:
+with contextlib.closing(pymongo.MongoClient()) as conn:
     coll = conn["twitter"]["LabeledStatuses_MiscTechCompanies_C"]
-    records = [r for r in coll.find() if r["TweetText"] is not None and r["sentiment"] != "irrelevant"]
+    records = [r["original"] for r in coll.find(projection = ["original"]) if r["original"]["TweetText"] is not None and r["original"]["Sentiment"] != "irrelevant"]
 
 print("Sample size:", len(records))
 df = pd.DataFrame(records)
@@ -245,7 +245,7 @@ df = pd.DataFrame(records)
 def score_iter(tokenize_f,  n):
     ret = Score(0, 0, 0, 0)
     for _ in range(n):
-        ret += doc2vec(df, "TweetText", ["sentiment", "Topic"]).score(tokenize_f, verbose = True)
+        ret += doc2vec(df, "TweetText", ["Sentiment", "Topic"]).score(tokenize_f, verbose = True)
     ret = Score(
         overall = ret.overall / n,
         positive = ret.positive / n,
@@ -254,7 +254,7 @@ def score_iter(tokenize_f,  n):
     )
     return ret
 
-N = 100
+N = 1
 
 def print_score(score, desc):
     print(desc + ":")
