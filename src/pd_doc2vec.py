@@ -1,5 +1,6 @@
 import re
 import gensim
+from tqdm import tqdm
 from gensim.models.doc2vec import TaggedDocument
 from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
@@ -28,7 +29,7 @@ class doc2vec:
 
         if isinstance(Y, basestring):
             df_tags.append(Y)
-        if isinstance(Y, list):
+        elif isinstance(Y, list):
             df_tags = Y
         elif not isinstance(Y, list):
             raise TypeError
@@ -74,44 +75,47 @@ class doc2vec:
         elif not isinstance(Y, list):
             raise TypeError
        
+        total_accuracy = 0
+        total_label_accuracy = []
+        col =self.df_tags[0]
+        for i in df[col].unique():
+            total_label_accuracy.append(0)
+        
+        for i in (range(10):
 
+#             if verbose:
+#                 print("Scoring model " +str(i)+ " / 10")
+            train, test = train_test_split(self.df, shuffle=True, test_size=0.05)
 
-        if verbose:
-            print("splitting train and test")
-        train, test = train_test_split(self.df, shuffle=True, test_size=0.05)
+            for index, datapoint in train.iterrows():
+                tokenized_words = re.findall(self.w, datapoint[X].lower())
+                labeled_sentences.append(TaggedDocument(words=tokenized_words, tags=[datapoint[i] for i in df_tags]))
 
-        if verbose:
-            print("labeling sentences")
-        for index, datapoint in train.iterrows():
-            tokenized_words = re.findall(self.w, datapoint[X].lower())
-            labeled_sentences.append(TaggedDocument(words=tokenized_words, tags=[datapoint[i] for i in df_tags]))
+            model = gensim.models.doc2vec.Doc2Vec(vector_size=self.vector_size,
+                                                  window_size=self.window_size,
+                                                  min_count=self.min_count,
+                                                  sampling_threshold=self.sampling_threshold,
+                                                  negative_size=self.negative_size,
+                                                  train_epoch=self.train_epoch,
+                                                  dm=self.dm,
+                                                  worker_count=self.worker_count)
 
-        model = gensim.models.doc2vec.Doc2Vec(vector_size=self.vector_size,
-                                              window_size=self.window_size,
-                                              min_count=self.min_count,
-                                              sampling_threshold=self.sampling_threshold,
-                                              negative_size=self.negative_size,
-                                              train_epoch=self.train_epoch,
-                                              dm=self.dm,
-                                              worker_count=self.worker_count)
-        if verbose:
-            print("training model")
-        model.build_vocab(labeled_sentences)
-        model.train(labeled_sentences, total_examples=model.corpus_count, epochs=model.epochs)
-        self.model = model
+            model.build_vocab(labeled_sentences)
+            model.train(labeled_sentences, total_examples=model.corpus_count, epochs=model.epochs)
+            self.model = model
 
-        if verbose:
-            print("making predictions")
-        test['results'] = self.predict(test[X])
-        if verbose:
-            print("Scoring results")
-        print("Label Score: ")
-        labelaccuracy = f1_score(test[self.testseries_name], test['results'], average=None)
-        print(labelaccuracy)  # Uses train test split to get score
-        print("Accuracy Score: ")
-        accuracy = accuracy_score(test[self.testseries_name], test['results'])
-        print(accuracy)        # Uses train test split to get score
-        return [labelaccuracy, accuracy]
+            test['results'] = self.predict(test[X])
+            labelaccuracy = f1_score(test[self.testseries_name], test['results'], average=None)
+            total_label_accuracy= [x + y for x, y in zip(total_label_accuracy, labelaccuracy)]
+            accuracy = accuracy_score(test[self.testseries_name], test['results'])
+            total_accuracy = total_accuracy + accuracy
+        
+        print("Accuracy Score: ", total_accuracy/10)
+        
+        total_label_accuracy = [i/10 for i in total_label_accuracy]
+        print("Label Score: ", total_label_accuracy)
+
+        return [total_label_accuracy, accuracy]
 
 
     def predict_taggedtext(self,
@@ -186,3 +190,6 @@ class doc2vec:
             return X.progress_apply(self.predict_text_main)
         else:
             return X.apply(self.predict_text_main)
+
+
+
