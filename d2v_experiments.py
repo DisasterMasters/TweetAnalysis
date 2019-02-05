@@ -244,6 +244,7 @@ def d2v_run(
     dm = 0,
     worker_count = 7,
 ):
+    # Determine which tags are mutually exclusive by performing a graph coloring, where the tags are vertices and two tags being in the same document are edges
     tag_coloring = {}
     colors = set(range(len(df)))
 
