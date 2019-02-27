@@ -21,6 +21,7 @@ def d2v_run(
     x,
     y,
     tokenize_f,
+    ys_to_train = None,
     ys_to_test = None,
     rmstop = False,
     stem = False,
@@ -46,8 +47,13 @@ def d2v_run(
     # Form disjoint sets by color
     tag_dsets = [{k for k, v in tag_coloring.items() if v == i} for i in range(max(tag_coloring.values()) + 1)]
 
+    if ys_to_train is None:
+        ys_to_train = set(tag_coloring.keys())
+
     if ys_to_test is None:
         ys_to_test = set(tag_coloring.keys())
+
+    ys_to_train = ys_to_train | ys_to_test
 
     training_data, test_data = train_test_split(df, shuffle = True)
 
@@ -62,7 +68,7 @@ def d2v_run(
         worker_count = worker_count
     )
 
-    training_data_docs = [TaggedDocument(tokenize_f(datum[x]), datum[y]) for _, datum in training_data.iterrows()]
+    training_data_docs = [TaggedDocument(tokenize_f(datum[x]), list(set(datum[y]) & ys_to_train)) for _, datum in training_data.iterrows()if len(set(datum[y]) & ys_to_train) > 0]
 
     model.build_vocab(training_data_docs)
     model.train(training_data_docs, total_examples = model.corpus_count, epochs = model.epochs)
@@ -79,7 +85,6 @@ def d2v_run(
             if len(a) > 0:
                 ret.append(a[-1])
 
-        print(ret)
         return ret
 
     def actual(y):
@@ -92,6 +97,7 @@ def d2v_run(
     actual_tags = actual_tags.where([bool(x) for x in actual_tags]).dropna()
 
     print(actual_tags)
+    print(inferred_tags)
 
     mlb = MultiLabelBinarizer()
     inferred_mlb = mlb.fit_transform(inferred_tags)
@@ -104,13 +110,13 @@ def d2v_run(
 
 with contextlib.closing(pymongo.MongoClient()) as conn:
     coll = conn["twitter"]["LabeledStatuses_MiscTechCompanies_C"]
-    records = [r for r in coll.find(projection = ["text", "tags"])]
+    records = [r for r in coll.find(projection = ["text", "tags"]) if "irrelevant" not in r["tags"]]
 
 df = pd.DataFrame(records)
 #df["sentiment"] = df["tags"].map(lambda x: [v for v in x if v in {"positive", "negative", "neutral"}][0])
 #df["topic"] = df["tags"].map(lambda x: [v for v in x if v not in {"positive", "negative", "neutral"}][0])
 
-acc, f1 = d2v_run(df, "text", "tags", re.compile("\w+", re.I).findall, {"positive", "negative", "neutral"})
+acc, f1 = d2v_run(df, "text", "tags", re.compile("\w+", re.I).findall, ys_to_test = {"positive", "negative", "neutral"})
 print(acc)
 print(f1)
 exit()
