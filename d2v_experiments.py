@@ -1,17 +1,17 @@
 import collections
 import contextlib
 import re
+import pickle
 
-import pandas as pd
-import pymongo
 import nltk.corpus
-from nltk.tokenize import TweetTokenizer
 from nltk.stem.snowball import SnowballStemmer
+from nltk.tokenize import TweetTokenizer
+import pandas as pd
 
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 from sklearn.metrics import accuracy_score, f1_score
-from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MultiLabelBinarizer
 
 stopwords = set(nltk.corpus.stopwords.words("english"))
 stemmer = SnowballStemmer("english")
@@ -68,7 +68,15 @@ def d2v_run(
         worker_count = worker_count
     )
 
-    training_data_docs = [TaggedDocument(tokenize_f(datum[x]), list(set(datum[y]) & ys_to_train)) for _, datum in training_data.iterrows()if len(set(datum[y]) & ys_to_train) > 0]
+    training_data_docs = []
+
+    for _, datum in training_data.iterrows():
+        # Only add data points whose tags overlap with ys_to_train to the
+        # training data set
+        tags = set(datum[y]) & ys_to_train
+
+        if tags:
+            training_data_docs.append(TaggedDocument(tokenize_f(datum[x]), list(tags)))
 
     model.build_vocab(training_data_docs)
     model.train(training_data_docs, total_examples = model.corpus_count, epochs = model.epochs)
@@ -80,6 +88,7 @@ def d2v_run(
         ret = []
 
         for dset in tag_dsets:
+            # Append the highest-rated element for each disjoint set
             a = [s[0] for s in sorted(sims, key = lambda x: x[1]) if s[0] in dset & ys_to_test]
 
             if len(a) > 0:
@@ -88,13 +97,14 @@ def d2v_run(
         return ret
 
     def actual(y):
-        return [s for s in y if s in ys_to_test]
+        return list(set(y) & ys_to_test)
 
-    actual_tags = test_data[y].map(actual)
     inferred_tags = test_data[x].map(infer)
+    actual_tags = test_data[y].map(actual)
 
-    inferred_tags = inferred_tags.where([bool(x) for x in actual_tags]).dropna()
-    actual_tags = actual_tags.where([bool(x) for x in actual_tags]).dropna()
+    mask = [bool(x) for x in actual_tags]
+    inferred_tags = inferred_tags.where(mask).dropna()
+    actual_tags = actual_tags.where(mask).dropna()
 
     print(actual_tags)
     print(inferred_tags)
@@ -108,11 +118,21 @@ def d2v_run(
 
     return acc, {k: v for k, v in zip(sorted(ys_to_test), f1)}
 
-with contextlib.closing(pymongo.MongoClient()) as conn:
-    coll = conn["twitter"]["LabeledStatuses_MiscTechCompanies_C"]
-    records = [r for r in coll.find(projection = ["text", "tags"]) if "irrelevant" not in r["tags"]]
+try:
+    with open("labeled_statuses.pkl", "rb") as fd:
+        df = pickle.load(fd)
+except FileNotFoundError:
+    import pymongo
 
-df = pd.DataFrame(records)
+    with contextlib.closing(pymongo.MongoClient()) as conn:
+        coll = conn["twitter"]["LabeledStatuses_MiscTechCompanies_C"]
+        records = [r for r in coll.find(projection = ["text", "tags"]) if "irrelevant" not in r["tags"]]
+
+    df = pd.DataFrame(records)
+
+    with open("labeled_statuses.pkl", "wb") as fd:
+        pickle.dump(df, fd)
+
 #df["sentiment"] = df["tags"].map(lambda x: [v for v in x if v in {"positive", "negative", "neutral"}][0])
 #df["topic"] = df["tags"].map(lambda x: [v for v in x if v not in {"positive", "negative", "neutral"}][0])
 
@@ -121,6 +141,7 @@ print(acc)
 print(f1)
 exit()
 
+'''
 regex_tokenizer = re.compile("\w+", re.I)
 nltk_tokenizer = TweetTokenizer(preserve_case = False)
 
@@ -151,6 +172,8 @@ print_score(nltk_identity_score, "Using NLTK, without any modifications")
 print_score(nltk_stem_score, "Using NLTK, with stemming")
 print_score(nltk_rmstop_score, "Using NLTK, with removal of stop words")
 print_score(nltk_stem_and_rmstop_score, "Using NLTK, with stemming and removal of stop words")
+'''
+
 '''
 print("Using NLTK:")
 print("\tWithout any modifications:              ", nltk_identity_score, "%")
