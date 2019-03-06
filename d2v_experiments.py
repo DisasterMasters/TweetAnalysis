@@ -106,9 +106,6 @@ def d2v_run(
     inferred_tags = inferred_tags.where(mask).dropna()
     actual_tags = actual_tags.where(mask).dropna()
 
-    print(actual_tags)
-    print(inferred_tags)
-
     mlb = MultiLabelBinarizer()
     inferred_mlb = mlb.fit_transform(inferred_tags)
     actual_mlb = mlb.fit_transform(actual_tags)
@@ -133,52 +130,31 @@ except FileNotFoundError:
     with open("labeled_statuses.pkl", "wb") as fd:
         pickle.dump(df, fd)
 
-#df["sentiment"] = df["tags"].map(lambda x: [v for v in x if v in {"positive", "negative", "neutral"}][0])
-#df["topic"] = df["tags"].map(lambda x: [v for v in x if v not in {"positive", "negative", "neutral"}][0])
-
-acc, f1 = d2v_run(df, "text", "tags", re.compile("\w+", re.I).findall, ys_to_test = {"positive", "negative", "neutral"})
-print(acc)
-print(f1)
-exit()
-
-'''
 regex_tokenizer = re.compile("\w+", re.I)
 nltk_tokenizer = TweetTokenizer(preserve_case = False)
 
-regex_identity_score = score_iter(regex_tokenizer.findall,  N)
-regex_stem_score = score_iter(lambda x: [stemmer.stem(w) for w in regex_tokenizer.findall(x)],  N)
-regex_rmstop_score = score_iter(lambda x: [w for w in regex_tokenizer.findall(x) if w not in stopwords],  N)
-regex_stem_and_rmstop_score = score_iter(lambda x: [stemmer.stem(w) for w in regex_tokenizer.findall(x) if w not in stopwords],  N)
+methods = {
+    "Using whitespace splitting, without any modifications": lambda x: x.split(),
+    "Using whitespace splitting, with stemming": lambda x: [stemmer.stem(w) for w in x.split()],
+    "Using whitespace splitting, with removal of stop words": lambda x: [w for w in x.split() if w not in stopwords],
+    "Using whitespace splitting, with stemming and removal of stop words": lambda x: [stemmer.stem(w) for w in x.split() if w not in stopwords],
+    "Using regexes, without any modifications": regex_tokenizer.findall,
+    "Using regexes, with stemming": lambda x: [stemmer.stem(w) for w in regex_tokenizer.findall(x)],
+    "Using regexes, with removal of stop words": lambda x: [w for w in regex_tokenizer.findall(x) if w not in stopwords],
+    "Using regexes, with stemming and removal of stop words": lambda x: [stemmer.stem(w) for w in regex_tokenizer.findall(x) if w not in stopwords],
+    "Using NLTK, without any modifications": nltk_tokenizer.tokenize,
+    "Using NLTK, with stemming": lambda x: [stemmer.stem(w) for w in nltk_tokenizer.tokenize(x)],
+    "Using NLTK, with removal of stop words": lambda x: [w for w in nltk_tokenizer.tokenize(x) if w not in stopwords],
+    "Using NLTK, with stemming and removal of stop words": lambda x: [stemmer.stem(w) for w in nltk_tokenizer.tokenize(x) if w not in stopwords]
+}
 
-nltk_identity_score = score_iter(nltk_tokenizer.tokenize,  N)
-nltk_stem_score = score_iter(lambda x: [stemmer.stem(w) for w in nltk_tokenizer.tokenize(x)],  N)
-nltk_rmstop_score = score_iter(lambda x: [w for w in nltk_tokenizer.tokenize(x) if w not in stopwords],  N)
-nltk_stem_and_rmstop_score = score_iter(lambda x: [stemmer.stem(w) for w in nltk_tokenizer.tokenize(x) if w not in stopwords],  N)
+for name, method in methods.items():
+    acc, f1 = d2v_run(df, "text", "tags", method, ys_to_test = {"positive", "negative", "neutral"})
 
-#def print_results(score, desc):
-#    print(desc + ":")
-#    print("\tOverall: %f %%" % )
-
-print("")
-print("-------")
-print("RESULTS")
-print("-------")
-print("")
-print_score(regex_identity_score, "Using regexes, without any modifications")
-print_score(regex_stem_score, "Using regexes, with stemming")
-print_score(regex_rmstop_score, "Using regexes, with removal of stop words")
-print_score(regex_stem_and_rmstop_score, "Using regexes, with stemming and removal of stop words")
-print_score(nltk_identity_score, "Using NLTK, without any modifications")
-print_score(nltk_stem_score, "Using NLTK, with stemming")
-print_score(nltk_rmstop_score, "Using NLTK, with removal of stop words")
-print_score(nltk_stem_and_rmstop_score, "Using NLTK, with stemming and removal of stop words")
-'''
-
-'''
-print("Using NLTK:")
-print("\tWithout any modifications:              ", nltk_identity_score, "%")
-print("\tWith stemming:                          ", nltk_stem_score, "%")
-print("\tWith removal of stop words:             ", nltk_rmstop_score, "%")
-print("\tWith stemming and removal of stop words:", nltk_stem_and_rmstop_score, "%")
-'''
+    print(name + ":")
+    print("\tOverall:  %f%%" % acc)
+    print("\tPositive: %f%%" % f1["positive"])
+    print("\tNegative: %f%%" % f1["negative"])
+    print("\tNeutral:  %f%%" % f1["neutral"])
+    print()
 
