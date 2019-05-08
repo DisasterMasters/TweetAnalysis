@@ -41,11 +41,11 @@ class d2v:
         training_data = list(zip(training_text, training_tags))
 
         if tokenize_f is None:
-            tokenizer = TweetTokenizer(preserve_case = False)
+            #tokenizer = TweetTokenizer(preserve_case = False)
             #stopwords = frozenset(nltk.corpus.stopwords.words("english"))
             #stemmer = SnowballStemmer("english")
 
-            tokenize_f = tokenizer.tokenize
+            tokenize_f = re.compile("\w+").findall
 
         if tags_to_train is None:
             tags_to_train = {tag for _, tags in training_data for tag in tags}
@@ -197,7 +197,7 @@ if __name__ == "__main__":
         with opencoll(db, "Statuses_MiscPower_A") as coll, PickleMarshaller("Relevant_Inferred.pkl") as marshaller:
             rt_ids = set()
 
-            for r in coll.find():
+            for r in coll.find(skip = 1000):
                 if "retweeted_status" in r:
                     if r["retweeted_status"]["id"] in rt_ids:
                         continue
@@ -208,4 +208,5 @@ if __name__ == "__main__":
                 r["tags"] = model.infer(text)
 
                 if "relevant" in r["tags"] and len(model.tokenize(text)) > 3:
+                    print(getnicetext(r))
                     marshaller.add(r)

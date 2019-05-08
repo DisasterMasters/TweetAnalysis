@@ -1,4 +1,6 @@
 import sys
+import re
+import os
 
 from common import getnicetext
 from marshalling import *
@@ -11,6 +13,8 @@ if __name__ == "__main__":
     filename = sys.argv[1]
     ext = filename[filename.rfind("."):]
 
+    rs = []
+
     cls = {
         ".csv": UnixCSVUnmarshaller,
         ".pkl": PickleUnmarshaller,
@@ -18,12 +22,10 @@ if __name__ == "__main__":
     }[ext]
 
     with cls(filename) as unmarshaller:
-        rs = []
-
-        try:
-            for r in unmarshaller:
-                if "tags" in r and ("relevant" in r["tags"] or "irrelevant" in r["tags"]):
-                    continue
+        for r in unmarshaller:
+            try:
+                #if "tags" in r and ("relevant" in r["tags"] or "irrelevant" in r["tags"]):
+                #    continue
 
                 print("\n" + getnicetext(r) + "\n")
                 relevant = input("\033[1mIs this relevant?\033[0m (yes/no/\033[4ms\033[0mkip) ").lower().strip()
@@ -34,15 +36,18 @@ if __name__ == "__main__":
                 elif relevant in {"no", "n", "false", "f", "off"}:
                     r["tags"] = ["irrelevant"]
                     rs.append(r)
-        except KeyboardInterrupt:
-            pass
+            except KeyboardInterrupt:
+                break
 
-    cls = {
-        ".csv": UnixCSVMarshaller,
-        ".pkl": PickleMarshaller,
-        ".bson": BSONMarshaller
-    }[ext]
+    if rs:
+        os.rename(filename, filename + ".old")
 
-    with cls(filename) as marshaller:
-        for r in rs:
-            marshaller.add(r)
+        cls = {
+            ".csv": UnixCSVMarshaller,
+            ".pkl": PickleMarshaller,
+            ".bson": BSONMarshaller
+        }[ext]
+
+        with cls(filename) as marshaller:
+            for r in rs:
+                marshaller.add(r)
